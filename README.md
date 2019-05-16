@@ -159,7 +159,7 @@ For more information please see the publication.
 
 ## Licence
 
-ClinSV is free for research and education purposes. For clinical or commercial use, please see the [ClinSV licence](LICENCE.docx) for more details.
+ClinSV is free for research and education purposes. For clinical or commercial use, please see the [ClinSV licence](LICENCE.md) for more details.
 
 ## Citation
 
