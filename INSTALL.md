@@ -5,7 +5,7 @@ This section provides an overview of the dependencies and assistence to compile 
 
 If using local versions of R, Perl or Python is preferred, remove the corresponding symlink in `$clinsv_path/bin`. Make sure that the required packages are installed.
 
-# Create a ClinSV installation directory
+## Create a ClinSV installation directory
 ```
 clinsv_path=$PWD/clinsv
 mkdir $clinsv_path
@@ -13,7 +13,7 @@ export PATH=$clinsv_path:$PATH
 ```
 
 
-# Get the latest ClinSV version
+## Get the latest ClinSV version
 * excluding precompiled dependencies
 
 1) pre-publication access
@@ -26,8 +26,8 @@ tar zxf ClinSV_scripts_only_v0.9.tar.gz
 git clone https://github.com/KCCG/ClinSV.git
 ```
 
-# Install perl and dependencies
-## Install perl
+## Install perl and dependencies
+### Install perl
 ```
 mkdir $clinsv_path/perl
 cd $clinsv_path/perl
@@ -44,21 +44,21 @@ cd $clinsv_path/perl
 rm -r perl-5.24.1*
 ```
 
-## Install cpanm
+### Install cpanm
 ```
 cd $clinsv_path/perl
 curl -L https://cpanmin.us/ -o cpanm
 chmod +x cpanm
 ```
 
-## create links to bin
+### create links to bin
 ```
 cd $clinsv_path/bin
 ln -s ../perl/bin/perl perl
 ln -s ../perl/cpanm cpanm
 ```
 
-## Install required perl modules with cpanm
+### Install required perl modules with cpanm
 ```
 cpanm Bio::Perl
 cpanm Compress::Zlib
@@ -96,7 +96,7 @@ export KENT_SRC=`pwd`
 cpanm Bio::DB::BigWig
 ```
 
-# Install Samtools BCFtools Tabix BGZip
+## Install Samtools BCFtools Tabix BGZip
 
 ```
 cd $clinsv_path
@@ -129,7 +129,7 @@ ln -s ../samtools/bin/tabix tabix
 
 ```
 
-# Install BigWigTools
+## Install BigWigTools
 
 For source and binaries please refer to:
 https://github.com/ENCODE-DCC/kentUtils
@@ -144,7 +144,7 @@ ln -s ../bigWigTools/wigToBigWig wigToBigWig
 
 
 
-# Install Python
+## Install Python
 
 ```
 mkdir $clinsv_path/python
@@ -161,7 +161,7 @@ cd $clinsv_path/bin
 ln -s ../python/bin/python python
 ```
 
-## get pip
+### get pip
 ```
 export $clinsv_path/python/bin:$PATH
 pip install numpy
@@ -171,14 +171,14 @@ pip install pysam
 
 
 
-# Install CNVnator
+## Install CNVnator
 
 For installing CNVnator
 https://github.com/hall-lab/speedseq#installation
 
 
 
-# Install root
+### Install root
 ```
 cd $clinsv_path
 
@@ -191,7 +191,7 @@ make
 source $PWD/bin/thisroot.sh
 ```
 
-## Install CNVnator-multi
+### Install CNVnator-multi
 ```
 mkdir $clinsv_path/cnvnator-multi
 cd $clinsv_path/cnvnator-multi
@@ -208,7 +208,7 @@ ln -s speedseq/bin/cnvnator cnvnator-multi
 ln -s speedseq/bin/cnvnator_wrapper.py .
 ```
 
-# Install Lumpy
+## Install Lumpy
 ```
 cd $clinsv_path
 git clone --recursive https://github.com/arq5x/lumpy-sv.git
@@ -220,7 +220,7 @@ ln -s ../lumpy-sv/bin/lumpy lumpy
 ```
 
 
-# Install R
+## Install R
 ```
 mkdir $clinsv_path/R
 cd $clinsv_path/R
@@ -235,7 +235,7 @@ cd $clinsv_path/bin
 ln -s ../R/bin/R R
 ```
 
-## install R package knitr locally
+### install R package knitr locally
 ```
 cd $clinsv_path/R/lib64/R/library
 R
