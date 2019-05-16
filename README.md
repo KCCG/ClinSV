@@ -82,7 +82,7 @@ clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
 ```
 
 ### Compile dependencies from source
-see [INSTALL.md](INSTALL,md)
+see [INSTALL.md](INSTALL.md)
 
 
 ## ClinSV options
@@ -131,6 +131,7 @@ Qualtiy control metrics, including a detailed description.
 ### Variant files
 
 > results/[sample.RARE\_PASS\_GENE.xlsx](results_test_data/sample.RARE_PASS_GENE.xlsx)
+
 Rare gene affecting variants, one variant per line. Recommended to open in OpenOffice calc.
 
 > SVs/joined/SV-CNV.vcf, .txt or .xlsx
