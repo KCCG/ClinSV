@@ -1,4 +1,5 @@
-# ClinSV
+<img src="clinsv_logo.png" alt="drawing" width="180"/>
+
 Robust detection of clinically relevant structural and copy number variation from whole genome sequencing data
 
 Microarrays have been the mainstay for detecting clinically relevant copy number variants (CNV) in patients. Whole genome sequencing (WGS) has the potential to provide far higher resolution of CNV detection and to resolve structural variation (SV) invisible to current microarrays. Current WGS-based approaches however have high error rates, poor reproducibility, and difficulties in annotating, visualizing, and prioritizing rare variants. 
@@ -6,6 +7,7 @@ Microarrays have been the mainstay for detecting clinically relevant copy number
 We developed ClinSV to overcome these challenges, enabling the use of WGS to identify short, and large CNV and balanced SV, with high analytical sensitivity, reproducibility, and low false positive rates. ClinSV is designed to be easily integrated into production WGS analysis pipelines, and generate output which is easily interpreted by researchers and clinicians. We developed ClinSV mostly in the context of analysing WGS data from a single-lane of an Illumina HiSeq X sequencer, thus ~30-40x coverage. We focused mostly on the use of ClinSV to identify rare, gene-affecting variation in the context of rare genetic disease. We have used it to detect Mitochondrial SV, and somatic SV from tumour-normal paired WGS.
 
 ClinSV has the following features:
+
 * integration of three CNV signals: depth of coverage, split and spanning reads
 * extensive quality attributes for CNV and SV
 * CNV and copy-number neutral SV are assigned High, Pass, Low quality tranches
@@ -79,8 +81,8 @@ export PATH=$clinsv_path/bin:$PATH
 clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
 ```
 
-### Compile from source
-* see [INSTALL.md](INSTALL.md)
+### Compile dependencies from source
+see [INSTALL.md](INSTALL,md)
 
 
 ## ClinSV options
@@ -121,14 +123,14 @@ To mark variants affecting user defined candidate genes, a [gene list](misc/test
 ### QC report
 
 
-> results/[sample.QC\_report.pdf](results_sample_data/sample.QC_report.pdf)
+> results/[sample.QC\_report.pdf](results_test_data/sample.QC_report.pdf)
 
 Qualtiy control metrics, including a detailed description.
 
 
 ### Variant files
 
-> results/[sample.RARE\_PASS\_GENE.xlsx](results_sample_data/sample.RARE_PASS_GENE.xlsx)
+> results/[sample.RARE\_PASS\_GENE.xlsx](results_test_data/sample.RARE_PASS_GENE.xlsx)
 Rare gene affecting variants, one variant per line. Recommended to open in OpenOffice calc.
 
 > SVs/joined/SV-CNV.vcf, .txt or .xlsx
@@ -138,13 +140,13 @@ All variants
 ### Results description
 
 For instructions on how to interprete the results, see:
-> results/[result\_description.docx](results_sample_data/result_description.docx)
+> results/[result\_description.docx](results_test_data/result_description.docx)
 
 and the manuscript (see section citation)
 
 ### IGV session file
 
-> igv/[sample.xml](results_sample_data/sample.xml)
+> igv/sample.xml
 
 This IGV genome browser session file contains paths to evidence data files necessary for manual inspection of variants.
 

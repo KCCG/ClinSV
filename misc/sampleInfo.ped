@@ -1,0 +1,3 @@
+Family_ID	sample_ID_son	sample_ID_father	sample_ID_mother	1	2	Son	affected
+Family_ID	sample_ID_father	0	0	1	1	Father	Unaffected
+Family_ID	sample_ID_mother	0	0	2	2	Mother	Affected
