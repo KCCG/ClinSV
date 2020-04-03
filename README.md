@@ -62,7 +62,7 @@ docker run \
 -v $refdata_path:/app/ref-data \
 -v $project_folder:/app/project_folder \
 -v $input_path:/app/input \
-  docker run clinsv -r all \
+  kccg/clinsv -r all \
 -i "/app/input/*.bam" \
 -ref $refdata_path:/app/ref-data \
 -p $project_folder:/app/project_folder

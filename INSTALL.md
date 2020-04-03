@@ -8,8 +8,8 @@ If using local versions of R, Perl or Python is preferred, remove the correspond
 ## Create a ClinSV installation directory
 ```
 clinsv_path=$PWD/clinsv
-mkdir $clinsv_path
-export PATH=$clinsv_path:$PATH
+mkdir -p $clinsv_path/bin
+export PATH=$clinsv_path/bin:$PATH
 ```
 
 
@@ -68,7 +68,7 @@ cpanm Excel::Writer::XLSX
 cpanm LWP
 ```
 
-## Install Tabix perl module
+### Install Tabix perl module
 ```
 cd $clinsv_path/perl
 git clone https://github.com/MinocheAE/tabix.git
@@ -81,7 +81,7 @@ make test
 make install
 ```
 
-## Install Bio::DB::BigWig perl module
+### Install Bio::DB::BigWig perl module
 ```
 cd $clinsv_path/perl
 wget https://github.com/ENCODE-DCC/kentUtils/archive/v286.0.0.tar.gz
@@ -159,13 +159,12 @@ make && make install
 rm -r Python-2.7.11*
 cd $clinsv_path/bin
 ln -s ../python/bin/python python
+ln -s ../python/bin/pip pip
 ```
 
-### get pip
+## install python modules
 ```
-export $clinsv_path/python/bin:$PATH
 pip install numpy
-pip install pysam
 pip install pysam
 ```
 
@@ -182,8 +181,8 @@ https://github.com/hall-lab/speedseq#installation
 ```
 cd $clinsv_path
 
-wget https://root.cern.ch/download/root_v5.34.20.source.tar.gz
-tar -zxf root_v5.34.20.source.tar.gz
+wget https://root.cern.ch/download/root_v5.34.38.source.tar.gz
+tar -zxf root_v5.34.38.source.tar.gz
 cd root
 ./configure
 make
@@ -204,7 +203,7 @@ make cnvnator
 * The `-std=c++11` may need to be removed from `src/CNVnator/Makefile`
 ```
 cd $clinsv_path/cnvnator-multi
-ln -s speedseq/bin/cnvnator cnvnator-multi
+ln -s speedseq/bin/cnvnator cnvnator-multi .
 ln -s speedseq/bin/cnvnator_wrapper.py .
 ```
 
