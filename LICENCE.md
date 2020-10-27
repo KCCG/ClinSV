@@ -1,6 +1,9 @@
 # CLINSV SOFTWARE LICENCE AGREEMENT FOR RESEARCH AND EDUCATION PURPOSES
 PLEASE READ THIS SOFTWARE LICENCE AGREEMENT CAREFULLY BEFORE USING THE CLINSV SOFTWARE. BY USING THE CLINSV SOFTWARE YOU (THE LICENSEE) AGREE THAT THIS AGREEMENT IS ENFORCEABLE LIKE ANY WRITTEN CONTRACT SIGNED BY YOU AND THAT YOU AGREE THAT YOUR USE IS SUBJECT TO THE FOLLOWING TERMS. IF YOU DO NOT AGREE TO THE TERMS OF THIS AGREEMENT, DO NOT USE THE SOFTWARE.
 
+<span style="background-color: #FFFF00">
+For the avoidance of doubt, ClinSV is free for research and education purposes only under this software licence agreement. For clinical or commercial use, please contact bdi[at]garvan.org.au for additional information. </span>
+
 ### 1 Terms of licence
 
 **1.1** Subject to the terms of this Agreement, the Licensor grants a non-exclusive, non-transferable licence to the Licensee to use the ClinSV Software for research and education purposes only (the Permitted Purpose). The Licensee is expressly excluded from using ClinSV Software for commercial purposes or as part of a clinical diagnostic workflow.
