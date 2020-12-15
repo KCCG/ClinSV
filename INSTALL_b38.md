@@ -1,11 +1,11 @@
-# Installation of ClinSV from source
+# Installation of ClinSV v1.0 from source
 We recommend installation from Singularity or Docker images. 
 
 This section provides an overview of the dependencies and assistence to compile them from source.
 
 If using local versions of R, Perl or Python is preferred, remove the corresponding symlink in `$clinsv_path/bin`. Make sure that the required packages are installed.
 
-This installation was tested on CentOS 6.10
+This installation was tested on CentOS 8
 
 ## Create a ClinSV installation directory
 ```

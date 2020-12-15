@@ -89,7 +89,7 @@ see [INSTALL.md](INSTALL.md)
 
 To run ClinSV on build 38 please use refdata-b38_v1.0.tar with ClinSV v1.0 from https://nci.space/_projects/clinsv_b38/
 
-So far there there is no Docker or Singularity image for ClinSV v1.0. ClinSV with its pre-compiled dependencies are in ClinSV_x86_64_v1.0.tar.gz. Please see [INSTALL_b38.md](INSTALL_b38.md) on how to build dependencies from source.
+So far there there is no Docker nor Singularity image for ClinSV v1.0. ClinSV with its pre-compiled dependencies is in ClinSV_x86_64_v1.0.tar.gz. Please see [INSTALL_b38.md](INSTALL_b38.md) on how to build dependencies from source.
 
 ## ClinSV options
 
