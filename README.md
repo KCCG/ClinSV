@@ -16,8 +16,12 @@ ClinSV has the following features:
 * full, and focussed result tables for easy clinical interpretation
 * Quality Control report
 * Analytical validaiton report, if NA12878 is being analysed
-* Multiple population allele frequency measures to help identify rare variants
+* Multiple population allele frequency measures to help identify rare variants 
 * Visualisation framework via IGV and multiple supporting tracks
+
+
+For 500 WGS [samples](misc/control_sample_IDs.txt) of the Medical Genome Reference Bank population, allele frequencies were derived from split-reads, discordant pairs, depth of coverage changes and ClinSV calls. This allows to also filter out common low confident variant calls and sequencing artefacts.
+
 
 ## Download
 
