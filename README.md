@@ -22,6 +22,7 @@ ClinSV has the following features:
 
 For 500 WGS [samples](misc/control_sample_IDs.txt) of the Medical Genome Reference Bank population, allele frequencies were derived from split-reads, discordant pairs, depth of coverage changes and ClinSV calls. This allows to also filter out common low confident variant calls and sequencing artefacts.
 
+Please refer to the [manuscript](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-021-00841-x) for further details.
 
 ## Download
 
@@ -173,5 +174,7 @@ ClinSV is free for research and education purposes, please refer to [ClinSV lice
 
 ## Citation
 
-Minoche et al. 2019 Manuscript under revision
+Minoche AE, Lundie B, Peters GB, Ohnesorg T, Pinese M, Thomas DM, et al. ClinSV: clinical grade structural and copy number variant detection from whole genome sequencing data. Genome Medicine. 2021;13:32. 
+
+[Manuscript](https://genomemedicine.biomedcentral.com/articles/10.1186/s13073-021-00841-x)
 
