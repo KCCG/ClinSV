@@ -30,6 +30,7 @@ Download human genome reference data GRCh37 decoy (hs37d5):
 
 ```
 wget https://nci.space/clinsv/refdata-b37_v0.9.tar
+# check md5sum: 921ecb9b9649563a16e3a47f25954951
 tar xf refdata-b37_v0.9.tar
 refdata_path=$PWD/clinsv/refdata-b37
 ```
