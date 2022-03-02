@@ -33,6 +33,7 @@ These dependecies also have these dependencies:
 **For Python**
 - python v2.7.18
 - python v3.8
+
   **Python 3 modules**
   - numpy
   - pysam
@@ -54,6 +55,7 @@ These dependecies also have these dependencies:
 
 **For Perl**
 - cpanm
+ 
  **Perl modules**
  - Compress::Zlib
  - Sort::Naturally 
