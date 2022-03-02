@@ -1,0 +1,1458 @@
+#!/usr/bin/perl
+
+########################################
+######################################## modules
+########################################
+
+use Getopt::Long;
+use File::Path qw(make_path remove_tree);
+use File::Basename;
+use Cwd;use Cwd "abs_path";
+use POSIX qw/strftime/;
+
+use FindBin qw($RealBin);
+use lib "$RealBin/../perlib";
+
+
+
+########################################
+######################################## default settings
+########################################
+$runString="all";
+$inputAlignDir="./input/*.bam";
+$lumpyBatchSize=5;
+$removeTmpFilesSh=1;
+$S_AskBeforeSub=0;
+
+$S_clinsv_dir=dirname(dirname(abs_path($0)));
+$S_ref_data="$S_clinsv_dir/refdata-b37";
+
+$projectDir_host='';
+$S_ref_data_host='';
+
+GetOptions ("p=s" => \$projectDir,
+			"r=s"  => \$runString,
+		    "i=s"  => \$inputAlignDir,
+		    "s=s"  => \$sampleInfoFile,
+		    "n=s"  => \$nameStemJoint,
+		    "f"  => \$force,	
+		    "a"  => \$S_AskBeforeSub,
+		    "ref=s"  => \$S_ref_data,
+		    "h"  => \$help,
+		    "l=i" => \$lumpyBatchSize,
+		    "eval"  => \$eval,
+)  or die("Error in command line arguments\n");
+
+if($help){  printHelp(); exit; }
+## check projectDir
+
+@bamInArr=glob("$inputAlignDir");
+if(scalar(@bamInArr)==0){print {STDERR} "\n **** error: no bam files found under $inputAlignDir **** \n"; printHelp(); exit}
+
+if ($projectDir =~ /\:/){  ($projectDir_host,$projectDir)=split(":",$projectDir)}
+if ($S_ref_data =~ /\:/){  ($S_ref_data_host,$S_ref_data)=split(":",$S_ref_data)}
+
+
+if ($S_ref_data =~ /refdata-b37/){
+	$S_ref_data_v='b37';
+}elsif ($S_ref_data =~ /refdata-b38/){
+	$S_ref_data_v='b38';
+}else{
+	print "refdata-bX not matching\n";
+	exit (1);
+}
+
+if (length($projectDir)<1){$projectDir=cwd();}
+
+make_path($projectDir) if (! -d $projectDir);
+if (! -d $projectDir){print {STDERR} "\n **** error: project dir $projectDir does not exist and could not be created **** \n"; printHelp(); exit}
+
+$projectDir=~ s/\/$//g; 
+$projectDirName=basename($projectDir);
+
+$nameStemJoinF=(length($nameStemJoint)>0)? "joined_$nameStemJoint":"joined";
+$nameStemJoint="$projectDirName" unless length($nameStemJoint)>0;
+
+if(length($sampleInfoFile)>0){
+	$readWriteSampleInfo="(read only)";
+}else{
+	$readWriteSampleInfo="";
+	$sampleInfoFile="$projectDir/sampleInfo.txt";	
+}
+
+
+
+###################### prepare main sh script header
+print  "##############################################\n";
+print  "####                ClinSV                ####\n";
+print  "##############################################\n";
+print  "# ".strftime("%d/%m/%Y\ %H:%M:%S",localtime)."\n\n";
+
+print  "# clinsv dir: $S_clinsv_dir\n";
+print  "# projectDir: $projectDir\n";
+print  "# sampleInfoFile: $sampleInfoFile $readWriteSampleInfo\n";
+print  "# name stem: $nameStemJoint\n";
+print  "# lumpyBatchSize: $lumpyBatchSize\n";
+print  "# genome reference: $S_ref_data\n";
+print  "# run steps: $runString\n";
+print  "# number input bams: ".scalar(@bamInArr)."\n";
+print  "# qc eval\n" if $eval;
+print  "\n";
+
+
+####################### prepare resource vars
+
+# for tabix, samtools, bgzip etc..
+$softBin="$S_clinsv_dir/bin";
+
+# CLinSV scripts
+$S_SV_scriptDir="$S_clinsv_dir/clinSV/scripts";
+
+# python
+#$S_python="module load python/2.7.3\nsource /path/virtenv.a1/bin/activate\n"; # if not already in path
+
+# ref-data ressource
+$S_SV_controlSRPE="$S_ref_data/control/brkp";
+$S_SV_controlStats="$S_ref_data/control/qc";
+
+
+$S_SV_controlNA12878_vcf="$S_ref_data/control/qc/SV-CNV_FR05812662.PASS.vcf";
+$S_SV_controlSampleID="FR05812662";
+$S_control_BW_stem="$S_ref_data/control/cnv";
+
+
+# lumpy scripts
+$S_lumpy_scripts="$S_clinsv_dir/lumpy-sv/scripts";
+$S_control_bw_folder="$S_ref_data/control/cnv/bw";
+
+# cnvnator bin
+$S_cnvnator_bin="$S_clinsv_dir/cnvnator-multi";
+$S_cnvnator_chroms="$S_ref_data/cnvnator_chroms";
+$S_root_src="$S_clinsv_dir/root";
+
+
+# for annotate
+$S_KDB_SV="$S_ref_data/annotation/MGRB-SV.bed.gz"; # to create see create-KDB-SV.pl in AZ_MA-comparisons.txt
+$S_gnomAD_SV="$S_ref_data/annotation/gnomad_v2_sv.sites.reformat.bed.gz"; # to create see create-KDB-SV.pl in AZ_MA-comparisons.txt
+
+$S_HPO_gene2label="$S_ref_data/annotation/Hs-gene-labels.txt";
+$S_HPO_gene2hpo="$S_ref_data/annotation/Hs-gene-to-phenotype.txt";
+
+
+$S_default_track_path="$S_ref_data/tracks";
+
+
+if ($S_ref_data_v eq "b37"){
+
+	$S_lumpy_excludeBed="$S_ref_data/lumpy_exclude.bed";
+	$S_SV_goldStandard="$S_ref_data/control/qc/GIAB_SV_DEL_gold_noNonCnvGr500_vPB.bed";
+
+	$S_SV_control_number_samples=500;
+
+	$S_1kG="$S_ref_data/annotation/estd219_1000_Genomes_Consortium_Phase_3_Integrated_SV.2015-07-18.GRCh37.p4.Submitted.gvf.gz";
+	$S_1kG_igv="$S_default_track_path/DGV_1kG_2015-07-18.igv.bed.gz";
+	
+	$S_DGV="$S_ref_data/annotation/GRCh37_hg19_variants_2015-07-23";
+	$S_DGV_igv="$S_default_track_path/GRCh37_hg19_variants_2015-07-23.igv.bed.gz";
+	
+	$S_genes="$S_ref_data/annotation/Homo_sapiens.GRCh37.75.gff.gz";
+	
+	$S_SegDup="$S_default_track_path/GRCh37GenomicSuperDup.bed.gz";
+
+
+
+	$S_Phen="$S_ref_data/annotation/ensemble_GRCh37_2_phen.txt";
+
+	$S_gnomAD_SV="$S_ref_data/annotation/gnomad_v2_sv.sites.reformat.bed.gz"; # to create see create-KDB-SV.pl in AZ_MA-comparisons.txt
+
+	# ref-data ressource
+	
+	# GATK bundle
+	#$S_GATK_bundle="/scratch/gd7/resources/gatk-resource-bundle/2.8/b37";
+	$S_GATK_bundle="/g/data/gd7/resources/gatk-resource-bundle/2.8/b37";
+	$refFasta_bwa="$S_GATK_bundle/human_g1k_v37_decoy.fasta";
+	$refFasta="$S_ref_data/genome/human_g1k_v37_decoy.fasta";
+	
+	# Gemini
+	$geminiRscr="/scratch/gd7/resources/kccg-gemini";
+	$geminiBin="/scratch/gd7/resources/gemini/bin";
+
+	$chrPf='';
+	$wig_line_count=$wig_line_count;
+	
+}elsif ($S_ref_data_v eq "b38"){
+	
+	$S_lumpy_excludeBed="$S_ref_data/exclude.cnvnator_100bp.GRCh38.20170403.bed";
+# 	$S_lumpy_excludeBed="$S_ref_data/b38_FR05812606_100x_plus_cnvnator_100bp.GRCh38.20170403.exclude.bed";
+	$S_SV_goldStandard="$S_ref_data/control/qc/GIAB_SV_DEL_gold_noNonCnvGr500_vPB_lift_to_b38.bed";
+	
+	$S_SV_control_number_samples=500;
+
+	$S_1kG="$S_ref_data/annotation/1kG_estd219.bed.gz";
+	$S_1kG_igv="$S_default_track_path/1kG_estd219.igv.bed.gz";
+	
+	$S_DGV="$S_ref_data/annotation/DGV_GRCh38_hg38_variants_2020-02-25.bed.gz";
+	$S_DGV_igv="$S_ref_data/tracks/DGV_GRCh38_hg38_variants_2020-02-25.igv.bed.gz";
+	
+	$S_genes="$S_ref_data/annotation/Homo_sapiens.GRCh38.99.gff.gz";
+	
+	$S_SegDup="$S_default_track_path/GRCh38GenomicSuperDup.bed.gz";
+
+	
+
+
+	$S_Phen="$S_ref_data/annotation/ensemble_GRCh37_2_phen.txt";
+
+	# ref-data ressource
+
+	# GATK bundle
+	$S_GATK_bundle="/g/data/gd7/resources/gatk-resource-bundle/hg38/v0";
+	$refFasta_bwa="$S_GATK_bundle/Homo_sapiens_assembly38.fasta";
+	$refFasta="$S_ref_data/genome/Homo_sapiens_assembly38.fasta";
+
+	# Gemini
+	# $geminiRscr="/scratch/gd7/resources/kccg-gemini";
+	# $geminiBin="/scratch/gd7/resources/gemini/bin";
+
+	$chrPf='chr';
+	$wig_line_count=3220490784;
+}
+
+
+############### check if user defined run steps are part of above defined pipeline
+
+@allSteps=("bigwig","lumpy","cnvnator","annotate","prioritize","qc","igv");
+
+map {$runSteps{$_}++;} split(",",$runString);
+$c=0; map {$allStepsH{$_}=($c++) } @allSteps;
+foreach (keys %runSteps){ 
+	if (!exists($allStepsH{$_}) and $_ ne "all" ){ 
+		print "\n **** error: run step \"$_\" does not exist. Must be one of: ".join(",",(@allSteps))."\n"; printHelp(); exit
+	} 
+}
+
+
+	
+###################### get sample Info
+if(! -e $sampleInfoFile){
+	
+	### check 
+	if($inputAlignDir eq "input"){  $inputAlignDir="$projectDir/$inputAlignDir";  }
+	@bamsX=glob("$inputAlignDir");
+	if(@bamsX==0){print {STDERR} "\n **** error: No input bam files in dir: $inputAlignDir or dir does not exist. **** \n"; printHelp(); exit}
+	
+	print "# Create sample info file from bam files ...\n";
+	createSampleInfoFromInput();
+}
+if (! -e $sampleInfoFile){print {STDERR} "\n **** error: The sample info file $sampleInfoFile does not exist **** \n"; printHelp(); exit}
+%fastq; readSampleInfo($sampleInfoFile);
+
+
+print "###### Generate the commands and scripts ######\n\n";
+################################################################################
+
+## SV
+bigwig() if exists($allStepsH{"bigwig"});
+lumpy() if exists($allStepsH{"lumpy"});
+cnvnator() if exists($allStepsH{"cnvnator"});
+annotate() if exists($allStepsH{"annotate"});
+prioritize() if exists($allStepsH{"prioritize"});
+qc() if exists($allStepsH{"qc"});
+
+print "###### Run jobs ######\n\n";
+################################################################################
+undef %cJobsToRun;
+undef %aJobsToRun;
+
+$TotalWallTime=0;
+undef %TotalWallTimePerStep;
+$TotalJobs=0;
+getJobsToRun();
+executeAllJobs();
+
+igv() if exists($runSteps{"igv"}) or exists($runSteps{"all"}) ;
+
+%sample2batchExt;
+
+
+
+
+########################################
+######################################## ClinSV functions
+########################################
+
+
+
+sub bigwig {
+  
+	$r_JobType="bigwig";
+	print  "# bigwig\n\n";
+	$r_head="set -e -x -o pipefail\n\n"; 
+	$r_head.="export PATH=$softBin:\$PATH\n";
+	
+	foreach $cSample (sort keys %fastq){
+			
+		$r_OutDir="$projectDir/alignments/$cSample/bw";
+		$rAlnDir="$projectDir/alignments/$cSample";
+		$r_TmpDir="$r_OutDir/tmp";
+		
+		$r_JobSubType="createWigs"; #! edit here
+		$r_JobUnit="$cSample"; #! edit here $cSample or joined
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[];
+		$$cJ{rJobResource}="walltime=6:00:00,ncpus=16,mem=10GB"; #! edit here
+		
+		open(OUT,">$$cJ{rShStem}.sh");	
+		print OUT "$r_head\n\n";	
+		print OUT "cd $r_OutDir/\n";
+		
+		foreach $cT (("q0","q20","mq")){ # create bw of s1 for MQ>=0 and MQ>=20
+			if($cT eq "mq"){
+				print OUT "\n\nawk '\$2>=100000 {print \$1\":1-\"\$2}' $refFasta.chrom.sizes | xargs -P 15 -t -i{} perl $S_SV_scriptDir/bam2wigMQ.pl ";
+				print OUT "-s 1 -r \"{}\" -o $r_TmpDir/$cSample.$cT -f $refFasta -b $rAlnDir/$cSample.bam\n";
+				
+				print OUT "\n\nawk '\$2<100000 {print \$1\":1-\"\$2}' $refFasta.chrom.sizes | xargs -P 1 -t -i{} perl $S_SV_scriptDir/bam2wigMQ.pl ";
+				print OUT "-s 1 -r \"{}\" -o $r_TmpDir/$cSample.$cT.small_contigs -f $refFasta -b $rAlnDir/$cSample.bam -a \n";
+
+			}else{
+				print OUT "\n\nawk '\$2>=100000 {print \$1\":1-\"\$2}' $refFasta.chrom.sizes | xargs -P 15 -t -i{} perl $S_SV_scriptDir/bam2wig.pl ";
+				print OUT "-s 1 -q $cT -r \"{}\" -o $r_TmpDir/$cSample.$cT -f $refFasta -b $rAlnDir/$cSample.bam\n";
+				
+				print OUT "\n\nawk '\$2<100000 {print \$1\":1-\"\$2}' $refFasta.chrom.sizes | xargs -P 1 -t -i{} perl $S_SV_scriptDir/bam2wig.pl ";
+				print OUT "-s 1 -q $cT -r \"{}\" -o $r_TmpDir/$cSample.$cT.small_contigs -f $refFasta -b $rAlnDir/$cSample.bam -a\n";
+			}	
+			print OUT "cat $r_TmpDir/$cSample.$cT.*.wig > $r_TmpDir/$cSample.$cT.wig\n\n";
+				print OUT "rm $r_TmpDir/$cSample.$cT.*.wig\n";
+			}
+		close(OUT);
+		
+	}
+		
+
+
+
+
+			
+
+
+
+
+	
+	foreach $cSample (sort keys %fastq){
+		foreach $cT (("q0","q20","mq")){ # create bw of s1 for MQ>=0 and MQ>=20	
+			$r_OutDir="$projectDir/alignments/$cSample/bw";
+
+			$r_TmpDir="$r_OutDir/tmp";
+			$r_JobSubType="$cT"; #! edit here
+			$r_JobUnit="$cSample"; #! edit here $cSample or joined
+			$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+			$$cJ{rDependencies}=[[$r_JobType,"createWigs",$cSample,"afterok"]];  #! edit here
+			$$cJ{rJobResource}="walltime=2:00:00,ncpus=1,mem=60GB,jobfs=100gb"; #! edit here
+			$$cJ{rJobResource}="walltime=5:00:00,ncpus=1,mem=60GB,jobfs=100gb" if $r_JobSubType eq "mq";
+			
+			open(OUT,">$$cJ{rShStem}.sh");	
+			print OUT "$r_head\n\n";
+			print OUT "cd $r_OutDir/\n";
+			
+			print OUT "wigToBigWig $r_TmpDir/$cSample.$r_JobSubType.wig $refFasta.chrom.sizes $r_OutDir/$cSample.$r_JobSubType.bw\n";
+			
+			print OUT "## checking the content of bw...\n";
+			print OUT "bigWigToWig $r_OutDir/$cSample.$r_JobSubType.bw  stdout | wc -l > $r_OutDir/$cSample.$r_JobSubType.bw.test\n";
+			print OUT "wclTest=\$(cat $r_OutDir/$cSample.$r_JobSubType.bw.test)\n";
+			print OUT "if [ \$wclTest -eq $wig_line_count ]; then echo \"bw size ==  $wig_line_count OK \"; else  echo \"bs size \$wclTest != $wig_line_count, bw potentially truncated\"; exit 111; fi\n\n";
+			
+			  
+			print OUT "rm $r_TmpDir/$cSample.$r_JobSubType.wig\n" if $removeTmpFilesSh;
+			close(OUT);
+			
+		}
+	}
+
+}
+
+sub lumpy {
+  	
+  	$r_JobType="lumpy";
+	
+	$r_head="set -e -x -o pipefail\n\n"; 
+	$r_head.=$S_python."export PATH=$softBin:\$PATH\n"; 
+	print  "# $r_JobType\n\n";
+	
+	################ preprocessing
+	foreach $cSample (sort keys %fastq){
+		
+		$r_JobSubType="preproc"; #! edit here
+		$r_JobUnit="$cSample"; #! edit here: $cSample or joined
+		$r_OutDir="$projectDir/SVs/$r_JobUnit/lumpy";
+		$alignOut="$projectDir/alignments/$cSample";
+
+		make_path($r_OutDir."/bed") if (! -d $r_OutDir."bed");	
+		$r_TmpDir="$r_OutDir/tmp";
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[];
+		$cMemGB=scalar(keys %{$fastq{$cSample}})*10;
+		$cCPU=scalar(keys %{$fastq{$cSample}})+1;
+		$$cJ{rJobResource}="walltime=10:00:00,mem=$cMemGB\gb,ncpus=$cCPU,jobfs=10gb"; #! edit here
+		
+		# get mean and stdev per sample
+		open(OUT,">$$cJ{rShStem}.sh");
+		print OUT "$r_head";
+		
+		print OUT "perl $S_SV_scriptDir/filterConcordantPairs.pl $alignOut/$cSample.bam 100:100 ".$chrPf."1:1000001-5000000 $refFasta | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.discordants -o $r_OutDir/$cSample.discordants.bam -  &\n";
+		print OUT "samtools view -T $refFasta -h $alignOut/$cSample.bam  | python $S_lumpy_scripts/extractSplitReads_BwaMem -i stdin | awk '\$3 != \"hs37d5\" && \$3 != \"NC_007605\"' | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.splitters -o $r_OutDir/$cSample.splitters.bam - &\n";
+		print OUT "wait\n"; 
+		
+		print OUT "perl $S_SV_scriptDir/PE-SR-bam2bed.pl splitters $r_OutDir $cSample $refFasta $r_OutDir/$cSample.splitters.bam | head & \n";
+		print OUT "perl $S_SV_scriptDir/PE-SR-bam2bed.pl discordants $r_OutDir $cSample $refFasta $r_OutDir/$cSample.discordants.bam | head & \n";
+		print OUT "wait\n"; 
+		print OUT "samtools index $r_OutDir/$cSample.discordants.f.bam &\n";
+		
+		print OUT "samtools sort -m 2G -T $r_TmpDir/$cSample.splitters -o $r_OutDir/$cSample.splitters.fs.bam $r_OutDir/$cSample.splitters.f.bam \n";
+		print OUT "mv $r_OutDir/$cSample.splitters.fs.bam $r_OutDir/$cSample.splitters.f.bam \n";
+
+		print OUT "samtools index $r_OutDir/$cSample.splitters.f.bam &\n";
+		print OUT "wait\n"; 
+		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh;
+		close(OUT);
+		
+		
+	}
+
+	
+	################ lumpy main
+	@SampleOrder=sort keys %fastq;
+	$lumpOrSpeedPreProc="OpreProc";#$lumpOrSpeedPreProc="speed";
+	$LP_mw=3; # more coverage results pairs overlapping by chance, changing the minimum weight doesn't change the fact. The extreme case would be a constant coverage greater than 1x. The clustering Program should pack everying into one breakpoint!?
+	# so this is a clear limitation of lumpy. What could downsample, but that would be a pitty for the larger events which would loose evidence.
+	# if one realy wants to get the small PEs one would have to use a program like CLEVER, I guess
+	# For now I will just adjust the SD for skewness and coverage together and keep the weight the same for all smaples
+	# with depth integration I aim at either: min 1PE and 1SR, or min 3PEs or min 2SR
+	# -msw $LP_msw, seems useless because both msw and mw needs to be met and we want variants just present in only one sample to be called
+	
+	$r_OutDir="$projectDir/SVs/$nameStemJoinF/lumpy";
+			
+	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
+		$LP_z=3;$LP_srw=2;$LP_MQ=20;
+
+		$cSSt=($i+1);$cSEn=( ($i+$lumpyBatchSize) <= scalar(@SampleOrder) )? ($i+$lumpyBatchSize):scalar(@SampleOrder);
+		$fileExt=(@SampleOrder>$lumpyBatchSize)? "_".$cSSt."-".$cSEn:"";
+		$r_JobUnit="joined$fileExt"; #! edit here: $cSample or joined
+		
+		for $cSpl ($i..($cSEn-1)){  $sample2batchExt{$SampleOrder[$cSpl]}=$fileExt;  }
+		
+		
+		####### lumpy caller
+		$r_JobSubType="caller"; #! edit here
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir);
+		$$cJ{rDependencies}=[["lumpy","preproc","all","afterok"]]; #! edit here
+		$$cJ{rJobResource}="walltime=22:00:00,mem=60GB,ncpus=1,jobfs=300gb"; #! edit here
+# 		$$cJ{rQueueType}="express";
+		
+		open(OUT,">$$cJ{rShStem}.sh");
+		print OUT "$r_head\ndeclare -A meanArr; declare -A stdevArr; declare -A readLArr; \n";
+		for $ii ($cSSt..$cSEn){	
+			$cSample=$SampleOrder[($ii-1)];
+			$r_PreProc="$projectDir/SVs/$cSample/lumpy";
+			
+			foreach $cReadGroupID (keys %{$fastq{$cSample}}){
+				$outStemSC=$cReadGroupID; $outStemSC=~ s/\-/_/g;		
+				print OUT "readLArr[$outStemSC]=\$(samtools view  $projectDir/alignments/$cSample/$cSample.bam ".$chrPf."1:1000000-1100000 | cut -f 10 | awk '{ print length}' | sort -rn | awk '(NR==1){print}' )\n";
+				print OUT "read -r mean stdev <<< \$( samtools view -r $cReadGroupID $projectDir/alignments/$cSample/$cSample.bam | python3 $S_SV_scriptDir/pairend_distro-a1.py -r \${readLArr[$outStemSC]} -X 2 -N 100000 -o $r_PreProc/$cReadGroupID.pe.histo | cut -d \":\" -f 2 )\n";		
+				print OUT "meanArr[$outStemSC]=\$mean;stdevArr[$outStemSC]=\$stdev;\n";
+			}	
+		}
+		print OUT "cd $r_OutDir \n";
+		print OUT "lumpy -mw $LP_mw -tt 0 -x $S_lumpy_excludeBed \\\n";
+		for $ii ($cSSt..$cSEn){
+			$cSample=$SampleOrder[($ii-1)];
+			$PESR_dir=($lumpOrSpeedPreProc eq "OpreProc")? "SVs/$cSample/lumpy":"alignments/$cSample";
+			$r_PreProc="$projectDir/SVs/$cSample/lumpy";
+				
+			foreach $cReadGroupID (keys %{$fastq{$cSample}}){
+				$outStemSC=$cReadGroupID; $outStemSC=~ s/\-/_/g;
+				print OUT  "-pe id:$cSample,bam_file:$projectDir/$PESR_dir/$cSample.discordants.bam,read_group:$cReadGroupID,histo_file:$r_PreProc/$cReadGroupID.pe.histo,mean:\${meanArr[$outStemSC]},stdev:\${stdevArr[$outStemSC]},read_length:\${readLArr[$outStemSC]},min_non_overlap:\$(expr \${readLArr[$outStemSC]} - 30),discordant_z:$LP_z,back_distance:10,weight:1,min_mapping_threshold:$LP_MQ \\\n";
+			}
+			print OUT  "-sr id:$cSample,bam_file:$projectDir/$PESR_dir/$cSample.splitters.f.bam,back_distance:10,weight:$LP_srw,min_mapping_threshold:$LP_MQ \\\n";
+		}
+		print OUT " > $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.vcf\n";
+		close(OUT);
+		
+	}
+	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
+		$LP_z=3;$LP_srw=2;$LP_MQ=20;
+
+		$cSSt=($i+1);$cSEn=( ($i+$lumpyBatchSize) <= scalar(@SampleOrder) )? ($i+$lumpyBatchSize):scalar(@SampleOrder);
+		$fileExt=(@SampleOrder>$lumpyBatchSize)? "_".$cSSt."-".$cSEn:"";
+		$r_JobUnit="joined$fileExt"; #! edit here: $cSample or joined
+
+		####### run the depth addition
+		$r_JobSubType="depth"; #! edit here
+		$r_TmpDir="$r_OutDir/tmp";
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[["lumpy","caller",$r_JobUnit,"afterok"],["bigwig","q0","all","afterok"],["bigwig","q20","all","afterok"],["bigwig","mq","all","afterok"]]; #! edit here
+		$$cJ{rJobResource}="walltime=8:00:00,ncpus=12,mem=30GB,jobfs=50G"; #! edit here
+# 		$$cJ{rQueueType}="express";
+		open(OUT,">$$cJ{rShStem}.sh");
+		$r_head.="export PERL5LIB=$S_clinsv_dir/perlib:\$PERL5LIB\n";
+		print OUT "$r_head\n";
+		
+		# parallel version with local copy of bw files
+		print OUT "perl -e 'while(<>){ if(/^#/){\$h.=\$_; next;} \@_=split(\"\\t\",\$_); \$c=\$_[0]; if(!exists(\$f{\$c})){ open(\$f{\$c},\">$r_TmpDir/in.\$c.vcf\"); print {\$f{\$c}} \$h; } \n";  
+		print OUT "print {\$f{\$c}} \$_; } foreach (values %f){close} ' $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.vcf \n";			
+
+		print OUT "ls $r_TmpDir/in.*.vcf | xargs -P 12 -t -i{} perl $S_SV_scriptDir/add-depth-to-PE-SR-calls.pl {} $refFasta $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder \n";
+		print OUT "(grep \"#\" $r_TmpDir/in.".$chrPf."1.out; cat $r_TmpDir/in.*.out | grep -v \"#\" | sort -V -k1,1 -k2,2n ) > $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.f1.vcf\n";	
+		
+
+		
+		
+		# not parrallel
+# 		print OUT "perl $S_SV_scriptDir/add-depth-to-PE-SR-calls.pl $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.vcf $refFasta $projectDir $r_TmpDir\n";
+		
+		print OUT "perl $S_SV_scriptDir/split_lumpy_vcf_by_sample.pl --infoFields SVTYPE,LEN --gtsFields SR,PE,DRF,IDD,CNRD,CNP --PASS --input $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.f1.vcf --outStem $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.f1\n";
+		print OUT "inVCFS=$r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.f1.vcf\n";
+		print OUT "sort_bgzip \$inVCFS; tabix -f -p vcf \$inVCFS.gz\n\n";
+		
+		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n";
+		
+		close(OUT);
+		
+	}
+	
+}
+
+sub cnvnator {
+  
+  	$r_JobType="cnvnator";
+	print  "# cnvnator\n\n";	
+
+	### write cnvnator commands sampleInfoFile
+	$r_head="";
+	$r_head.="export PATH=$softBin:\$PATH\n";
+	$r_head.=$S_python; 
+	$r_head.= "source $S_root_src/bin/thisroot.sh\n";
+	$r_head.="set -e -x -o pipefail\n\n"; 
+	
+	foreach $cSample (sort keys %fastq){
+		
+		$r_JobSubType="caller"; #! edit here
+		$r_JobUnit="$cSample"; #! edit here $cSample or joined
+		$r_OutDir="$projectDir/SVs/$cSample/cnvnator";
+		$r_TmpDir="$r_OutDir/tmp";
+		
+		
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[["lumpy","preproc",$cSample,"afterok"],["bigwig","q0",$cSample,"afterok"],["bigwig","q20",$cSample,"afterok"],["bigwig","mq",$cSample,"afterok"]];  #! edit here
+		$$cJ{rJobResource}="walltime=6:00:00,mem=30GB,ncpus=16,jobfs=300gb"; #! edit here
+
+		open(OUT,">$$cJ{rShStem}.sh");
+		print OUT "$r_head\n";
+		print OUT "cd $r_OutDir/\n";	
+				
+		print OUT "python $S_cnvnator_bin/cnvnator_wrapper.py --cnvnator $S_cnvnator_bin/cnvnator-multi ";	
+		print OUT "-T $r_TmpDir -t 14 -w 100 -b $projectDir/alignments/$cSample/$cSample.bam -o $r_OutDir/cnvnator.$cSample ";
+		print OUT "-c $S_cnvnator_chroms -g $S_ref_data_v --exclude '_,HLA,EBV' \n";	#Excluding superflous contigs	
+		
+		print OUT "perl $S_SV_scriptDir/filterCNVNator.pl $r_OutDir/cnvnator.$cSample.txt $cSample $refFasta $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder\n\n";
+		
+		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh;
+		close(OUT);
+		
+	}
+
+}
+
+sub annotate {
+    
+  	print  "# annotate\n\n";
+	
+	$r_JobType="annotate";
+	$r_JobSubType="main"; #! edit here
+	
+	
+	@SampleOrder=sort keys %fastq;		
+	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
+ 
+		$cSSt=($i+1);$cSEn=( ($i+$lumpyBatchSize) <= scalar(@SampleOrder) )? ($i+$lumpyBatchSize):scalar(@SampleOrder);		
+		$fileExt=(@SampleOrder>$lumpyBatchSize)? "_".$cSSt."-".$cSEn:"";
+		$r_JobUnit="joined$fileExt"; #! edit here: $cSample or joined
+		@cSampleOrder=@SampleOrder[($cSSt-1)..($cSEn-1)];
+		
+		$r_OutDir="$projectDir/SVs/$nameStemJoinF";
+		$r_TmpDir="$r_OutDir/tmp";
+	
+	
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[["cnvnator","caller","all","afterok"],["lumpy","depth","all","afterok"]];  #! edit here
+	
+		# if SNVs are to be called, wait for those to do the LOH annotation
+		push @{$$cJ{rDependencies}}, ["vqsr","VariantRecalibrator","joined","afterok"] if exists($allStepsH{"vqsr"});
+		push @{$$cJ{rDependencies}}, ["freebayes","caller","all","afterok"] if exists($allStepsH{"freebayes"}) ;
+	
+		$$cJ{rJobResource}="walltime=10:00:00,mem=10GB,ncpus=1,jobfs=20gb"; #! edit here
+# 		$$cJ{rQueueType}="normal";
+
+		undef @extensions;
+				
+		### write annotate commands sampleInfoFile
+		$r_head="set -e -x -o pipefail\n\n"; 
+		$r_head.="export PATH=$softBin:\$PATH\n";
+		$r_head.="export PERL5LIB=$S_clinsv_dir/perlib:\$PERL5LIB\n";
+		$r_head.="cd $r_OutDir\n\n";
+	
+		open(OUT,">$$cJ{rShStem}.sh");
+		print OUT "$r_head\n";
+
+		##### merge Lumpy and CNVNator variants
+		print OUT "perl $S_SV_scriptDir/merge-lumpy-CNVNator.pl ".
+		"$projectDir/SVs/XX_SAMPLEID_XX/cnvnator/cnvnator.XX_SAMPLEID_XX.f1.bed ".join(",",@cSampleOrder)." ".
+		"$r_OutDir/lumpy/$nameStemJoint.MQ20.OpreProc$fileExt.f1.vcf $r_TmpDir/SV-CNV$fileExt\n\n";
+		
+		print OUT "inVCFS=$r_TmpDir/SV-CNV$fileExt\n";
+		print OUT "sort_bgzip \$inVCFS.vcf;  tabix -f -p vcf \$inVCFS.vcf.gz\n\n";
+		
+		##### annotation DGV 
+		print OUT "perl $S_SV_scriptDir/annotate-DGV.pl -dgv $S_DGV -toAnnot $r_TmpDir/SV-CNV$fileExt.vcf.gz --ref $refFasta\n\n";			
+		push @extensions, 'DGV'; $cExt=join(".",@extensions);
+				
+		##### annotation GC 
+		print OUT "perl $S_SV_scriptDir/annotate-GC.pl $r_TmpDir/SV-CNV$fileExt.$cExt.vcf $refFasta > $r_TmpDir/SV-CNV$fileExt.$cExt.GC.vcf\n\n";
+		push @extensions, 'GC'; $cExt=join(".",@extensions);
+		
+		##### annotation LOH 
+		if ( exists($allStepsH{"vqsr"}) or ( -e "$projectDir/SNVs/$nameStemJoinF/$nameStemJoint.vqsr.vcf.gz" ) ){
+		    print OUT "cp $projectDir/SNVs/$nameStemJoinF/$nameStemJoint.vqsr.vcf.gz \$PBS_JOBFS/  \n";
+			print OUT "cp $projectDir/SNVs/$nameStemJoinF/$nameStemJoint.vqsr.vcf.gz.tbi \$PBS_JOBFS/  \n";
+			print OUT "perl $S_SV_scriptDir/annotate-LOH.pl $r_TmpDir/SV-CNV$fileExt.$cExt.vcf \\\n";
+			print OUT "\$PBS_JOBFS/$nameStemJoint.vqsr.vcf.gz > $r_TmpDir/SV-CNV$fileExt.$cExt.LOH.vcf \n\n";
+			push @extensions, 'LOH'; $cExt=join(".",@extensions);
+		}elsif( exists($allStepsH{"freebayes"}) or ( -e "$projectDir/SNVs/$nameStemJoinF/$nameStemJoint.fb.vcf.gz" ) ){
+			print OUT "cp $projectDir/SNVs/$nameStemJoinF/$nameStemJoint.fb.vcf.gz \$PBS_JOBFS/  \n";
+			print OUT "cp $projectDir/SNVs/$nameStemJoinF/$nameStemJoint.fb.vcf.gz.tbi \$PBS_JOBFS/  \n";
+			print OUT "perl $S_SV_scriptDir/annotate-LOH.pl $r_TmpDir/SV-CNV$fileExt.$cExt.vcf \\\n";
+			print OUT "\$PBS_JOBFS/$nameStemJoint.fb.vcf.gz > $r_TmpDir/SV-CNV$fileExt.$cExt.LOH.vcf \n\n";
+			push @extensions, 'LOH'; $cExt=join(".",@extensions);
+		}
+		
+		##### annotation segDups: Segmental duplication annotation:: For best match: % query coverage | % target (seg-dup) coverage | identity | For all matches: count | merged % coverage of querry length
+		print OUT "perl $S_SV_scriptDir/annotate-segDups.pl $S_SegDup ";
+		print OUT "$r_TmpDir/SV-CNV$fileExt.$cExt.vcf > $r_TmpDir/SV-CNV$fileExt.$cExt.SEGD.vcf\n\n";
+		push @extensions, 'SEGD'; $cExt=join(".",@extensions);
+		
+		##### annotation KCCG SV database (Ovl. with calls form control samples): varient frequency (%ovl more tolerant for CNVnator), method, 
+		print OUT "perl $S_SV_scriptDir/annotate-KDB.pl $S_KDB_SV $S_SV_control_number_samples $r_TmpDir/SV-CNV$fileExt.$cExt.vcf > $r_TmpDir/SV-CNV$fileExt.$cExt.KDB.vcf\n\n";	
+		push @extensions, 'KDB'; $cExt=join(".",@extensions);
+		
+		##### annotation gnomed VAF
+		if ($S_ref_data_v eq "b37"){
+			print OUT "perl $S_SV_scriptDir/annotate-gnomAD.pl $S_gnomAD_SV $r_TmpDir/SV-CNV$fileExt.$cExt.vcf > $r_TmpDir/SV-CNV$fileExt.$cExt.gnomAD.vcf\n\n";	
+			push @extensions, 'gnomAD'; $cExt=join(".",@extensions);
+		}
+				
+		##### annotation KCCG SV database (Ovl. with calls form control samples): varient frequency (%ovl more tolerant for CNVnator), method, 
+		print OUT "perl $S_SV_scriptDir/annotate-1kG.pl -dgva $S_1kG -toAnnot $r_TmpDir/SV-CNV$fileExt.$cExt.vcf \n\n";	
+		push @extensions, '1kG'; $cExt=join(".",@extensions);
+		
+		##### annotate with my ENSEMBL gene annotation script
+		print OUT "perl $S_SV_scriptDir/annotate-ENSEMBL.pl $S_genes \\\n";
+		print OUT "$r_TmpDir/SV-CNV$fileExt.$cExt.vcf $S_HPO_gene2label $S_HPO_gene2hpo > $r_TmpDir/SV-CNV$fileExt.$cExt.ENS.vcf \n\n";
+		push @extensions, 'ENS'; $cExt=join(".",@extensions);
+		
+		##### add missing quality stags/flags for unmerged CNVnator rows, 
+		# since it is compute intensive only do it for events overlapping genes and not present in KDB
+		print OUT "perl $S_SV_scriptDir/qualStats_CNVNator.pl ".join(",",(@SampleOrder[($cSSt-1)..($cSEn-1)]))." $S_control_BW_stem $refFasta $projectDir \\\n";
+		print OUT " $r_TmpDir/SV-CNV$fileExt.$cExt.vcf > $r_TmpDir/SV-CNV$fileExt.$cExt.qsCNV.vcf\n\n";
+		push @extensions, 'qsCNV'; $cExt=join(".",@extensions);
+		
+		
+		print OUT "ln -s $r_TmpDir/SV-CNV$fileExt.$cExt.vcf $r_TmpDir/SV-CNV$fileExt.annot.vcf\n\n";
+
+			
+	
+# 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		close(OUT);
+		
+	}
+	
+}
+
+sub prioritize {
+    
+  	print  "# prioritize\n\n";
+	
+	$r_JobType="prioritize";
+	$r_JobSubType="main"; #! edit here
+	
+	
+	@SampleOrder=sort keys %fastq;		
+	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
+ 
+		$cSSt=($i+1);$cSEn=( ($i+$lumpyBatchSize) <= scalar(@SampleOrder) )? ($i+$lumpyBatchSize):scalar(@SampleOrder);		
+		$fileExt=(@SampleOrder>$lumpyBatchSize)? "_".$cSSt."-".$cSEn:"";
+		$r_JobUnit="joined$fileExt"; #! edit here: $cSample or joined
+		@cSampleOrder=@SampleOrder[($cSSt-1)..($cSEn-1)];
+		
+		$r_OutDir="$projectDir/SVs/$nameStemJoinF";
+		$r_TmpDir="$r_OutDir/tmp";
+	
+	
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[["annotate","main","all","afterok"]];  #! edit here
+		
+		$$cJ{rJobResource}="walltime=1:00:00,mem=3GB,ncpus=1,jobfs=20gb"; #! edit here
+# 		$$cJ{rQueueType}="normal";
+		
+		### write annotsv commands sampleInfoFile
+		$r_head="set -e -x -o pipefail\n\n"; 
+		$r_head.="export PATH=$softBin:\$PATH\n";
+		$r_head.="export PERL5LIB=$S_clinsv_dir/perlib:\$PERL5LIB\n";
+		$r_head.="cd $r_OutDir\n\n";
+	
+		open(OUT,">$$cJ{rShStem}.sh");
+		print OUT "$r_head\n";
+		
+		make_path($projectDir."/results") if (! -d $projectDir."/results");
+		$projectDir_adj= length($projectDir_host)<1 ? $projectDir:$projectDir_host;
+		##### prioritize SV
+		print OUT "perl $S_SV_scriptDir/prioritize-SVs.pl $r_TmpDir/SV-CNV$fileExt.annot  $projectDir $S_Phen $projectDir_adj/igv $refFasta \n\n";
+		$xlx_stem=($lumpyBatchSize==1 or scalar(@SampleOrder)==1)? $cSampleOrder[0]:"SV-CNV$fileExt";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.RARE_PASS_GENE.light.xlsx  $projectDir/results/$xlx_stem.RARE_PASS_GENE.light.xlsx \n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.RARE_PASS_GENE.xlsx  $projectDir/results/$xlx_stem.RARE_PASS_GENE.xlsx \n\n";
+		print OUT "cp $S_ref_data/result_description.docx  $projectDir/results/ \n\n";
+		
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.vcf $r_OutDir/SV-CNV$fileExt.vcf\n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.txt $r_OutDir/SV-CNV$fileExt.txt\n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.RARE_PASS_GENE.xlsx $r_OutDir/SV-CNV$fileExt.RARE_PASS_GENE.xlsx\n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.RARE_PASS_GENE.light.xlsx $r_OutDir/SV-CNV$fileExt.RARE_PASS_GENE.light.xlsx\n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.RARE_PASS_GENE.txt $r_OutDir/SV-CNV$fileExt.RARE_PASS_GENE.txt\n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.RARE_PASS_GENE.vcf $r_OutDir/SV-CNV$fileExt.RARE_PASS_GENE.vcf\n\n";
+		print OUT "cp $r_TmpDir/SV-CNV$fileExt.annot.prioritized.PASS.vcf $r_OutDir/SV-CNV$fileExt.PASS.vcf\n\n";
+		
+
+		
+		print OUT "inVCFS=$r_OutDir/SV-CNV$fileExt\n";
+		print OUT "sort_bgzip \$inVCFS.vcf; tabix -f -p vcf \$inVCFS.vcf.gz\n\n";
+		
+		print OUT "perl $S_SV_scriptDir/SV_vcf_2_bed.pl $r_OutDir/SV-CNV$fileExt $r_OutDir/SV-CNV$fileExt.vcf \n\n";
+				
+	
+# 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		close(OUT);
+		
+	}
+	
+}
+
+sub qc {
+    
+  	print  "# qc\n\n";
+	
+	$r_JobType="qc";
+	$r_JobSubType="main"; #! edit here
+	
+	
+	@SampleOrder=sort keys %fastq;		
+	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
+ 
+		$cSSt=($i+1);$cSEn=( ($i+$lumpyBatchSize) <= scalar(@SampleOrder) )? ($i+$lumpyBatchSize):scalar(@SampleOrder);		
+		$fileExt=(@SampleOrder>$lumpyBatchSize)? "_".$cSSt."-".$cSEn:"";
+		$r_JobUnit="joined$fileExt"; #! edit here: $cSample or joined
+		@cSampleOrder=@SampleOrder[($cSSt-1)..($cSEn-1)];
+		
+		$r_OutDir="$projectDir/SVs/qc";
+		$r_SVDir="$projectDir/SVs/$nameStemJoinF";
+		$r_TmpDir="$r_OutDir/tmp";
+	
+	
+		$cJ=setUpJ($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir);
+		$$cJ{rDependencies}=[["prioritize","main","all","afterok"]];  #! edit here
+		
+		$$cJ{rJobResource}="walltime=01:00:00,mem=2GB,ncpus=1,jobfs=20gb"; #! edit here
+# 		$$cJ{rQueueType}="normal";
+		
+		### write qc commands sampleInfoFile
+		$r_head="set -e -x -o pipefail\n\n"; 
+		$r_head.="export PATH=$softBin:\$PATH\n";
+		$r_head.="export PERL5LIB=$S_clinsv_dir/perlib:\$PERL5LIB\n";
+		$r_head.="cd $r_OutDir\n\n";
+	
+		open(OUT,">$$cJ{rShStem}.sh");
+		print OUT "$r_head\n";
+		
+		########## eval report
+		print OUT "\n## evaluation report\n\n";
+		foreach $cSample (@cSampleOrder){
+		
+			print OUT "bcftools view -s $cSample $r_SVDir/SV-CNV$fileExt.vcf.gz | bcftools view -e ' FMT/FT!=\"PASS\" & FMT/FT!=\"HIGH\" ' > $r_SVDir/SV-CNV$fileExt.$cSample.PASS.vcf\n";
+			make_path($projectDir."/SVs/qc/tmpQC") if (! -d $r_SVDir."/SVs/qc/tmpQC");
+		
+			###### prepare data
+			print OUT "perl $S_SV_scriptDir/validReportPrep.pl $projectDir $refFasta \"$fileExt\" $cSample $nameStemJoinF\n\n";
+		
+			if($eval){
+			
+				foreach $cType (("highCNV","passCNV","highSV","passSV")){
+					###### reproducibility analysis with control samples
+					make_path($projectDir."/SVs/qc/reproducibility/$cSample/$cType\_rS_rC") if (! -d $r_OutDir."/SVs/qc/reproducibility/$cSample/$cType\_rS_rC");
+					print OUT "cd $projectDir/SVs/qc/reproducibility/$cSample/$cType\_rS_rC \n";
+					print OUT "perl $S_SV_scriptDir/conc_sv.pl -$cType -useVType -cnvPercentOvl 80 -a $r_SVDir/SV-CNV$fileExt.$cSample.PASS.vcf -b $S_SV_controlNA12878_vcf > resulTable.tab \n\n";
+				}
+				foreach $cType (("highCNV","passCNV","highSV","passSV")){
+					###### reproducibility analysis with control samples
+					make_path($projectDir."/SVs/qc/reproducibility/$cSample/$cType\_rC_rS") if (! -d $r_OutDir."/SVs/qc/reproducibility/$cSample/$cType\_rC_rS");
+					print OUT "cd $projectDir/SVs/qc/reproducibility/$cSample/$cType\_rC_rS \n";
+					print OUT "perl $S_SV_scriptDir/conc_sv.pl -$cType -useVType -cnvPercentOvl 80 -b $r_SVDir/SV-CNV$fileExt.$cSample.PASS.vcf -a $S_SV_controlNA12878_vcf > resulTable.tab \n\n";
+				}
+
+
+				###### sensitivity analysis with gold standard	
+				make_path($projectDir."/SVs/qc/sensitivity/$cSample") if (! -d $r_SVDir."/SVs/qc/sensitivity/$cSample");
+				print OUT "cd $projectDir/SVs/qc/sensitivity/$cSample \n";
+				print OUT "perl $S_SV_scriptDir/conc_sv.pl -useVType -cnvPercentOvl 80 -a $S_SV_goldStandard -b $r_SVDir/SV-CNV$fileExt.$cSample.PASS.vcf > resulTable.tab \n\n";
+			
+			}
+			
+			###### plot and make a pdf
+			print OUT "export PARAM_PROJECT_PATH=$projectDir \n";
+			print OUT "export PARAM_CONTROL_SAMPLE=$S_SV_controlSampleID \n";			
+			print OUT "export PARAM_SAMPLE=$cSample \n";
+			print OUT "export PARAM_ControlStats_PATH=$S_SV_controlStats \n\n";	
+			print OUT "export PARAM_EVAL=$eval \n\n";	
+					
+			print OUT "mkdir -p $projectDir/SVs/qc/tmpQC/tmp/$cSample/figure \n";
+			print OUT "cp $S_SV_controlStats/*.png $projectDir/SVs/qc/tmpQC/tmp/$cSample/figure/\n";
+			print OUT "cd $projectDir/SVs/qc/tmpQC/tmp/$cSample \n";
+			
+			
+			print OUT "export R_ROOT_DIR=\$(dirname \$(dirname \$(readlink -f \$(which R)))) \n";	
+			print OUT "export RHOME=\${R_ROOT_DIR} \n";
+			print OUT "R -e \"library(knitr); knit('$S_SV_scriptDir/validReport.Rnw', output = '$projectDir/SVs/qc/tmpQC/$cSample.QC_report.tex')\" \n";
+			print OUT "pdflatex -output-directory $projectDir/SVs/qc/tmpQC -interaction nonstopmode $projectDir/SVs/qc/tmpQC/$cSample.QC_report.tex || true\n";
+			print OUT "cp $projectDir/SVs/qc/tmpQC/$cSample.QC_report.pdf $projectDir/SVs/qc/ \n\n";
+			print OUT "rm -r $projectDir/SVs/qc/tmpQC/tmp/$cSample \n";
+			
+			print OUT "cp $projectDir/SVs/qc/$cSample*.pdf $projectDir/results/ \n\n";
+		}
+				
+	
+# 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		close(OUT);
+		
+	}
+	
+}
+
+sub igv {
+  
+  	 
+	print  "# writing igv session files...\n\n";
+	$S_igv_dir="$projectDir/igv";
+	
+	if (length($projectDir_host)<1){
+		$session_target_path="$projectDir";
+		$S_default_track_path_xml="$S_ref_data/tracks";
+		
+	}else{
+		$session_target_path="$projectDir_host";
+		$S_default_track_path_xml="$S_ref_data_host/tracks";
+	}
+	
+   	make_path($S_igv_dir) if (! -d $S_igv_dir);	
+
+	
+	$r_OutDir="$projectDir/alignments/$cSample/bw";
+
+	
+	# create the IGV session	
+	foreach $cSample (sort keys %fastq){
+	
+		undef %IGVS; undef %IGVOpt;
+		##### coverage tracks  #### panel 1
+	
+		# NA12878
+		$IGVS{1}{1}{path}="$S_default_track_path_xml/FR05812622.q0.bw";
+		$IGVS{1}{1}{name}="Coverage NA12878";
+		
+		# Sample coverage
+		$IGVS{1}{2}{path}="$session_target_path/alignments/$cSample/bw/$cSample.q0.bw";
+		$IGVS{1}{2}{color}="0,51,153";
+		$IGVS{1}{2}{name}="Coverage $cSample";
+		
+		$IGVS{1}{3}{path}="$session_target_path/alignments/$cSample/bw/$cSample.q20.bw";
+		$IGVS{1}{3}{color}="0,102,153";
+		$IGVS{1}{3}{name}="Coverage >= MQ20 $cSample";
+		
+		$IGVS{1}{4}{path}="$session_target_path/alignments/$cSample/bw/$cSample.mq.bw";
+		$IGVS{1}{4}{height}=30;
+		$IGVS{1}{4}{name}="Mapping qual. $cSample";
+
+		$IGVS{1}{5}{path}="$S_default_track_path_xml/popCovStdev.bw";
+		$IGVS{1}{5}{color}="0,102,102";
+		$IGVS{1}{5}{height}=30;
+		$IGVS{1}{5}{name}="Pop. cov. stdev";
+		$IGVS{1}{5}{DataRange}{maximum}=0.5;
+		$IGVS{1}{5}{autoScale}="false";
+		
+		
+		# Sample segdups
+		$IGVS{1}{6}{path}="$S_default_track_path_xml/GRCh37GenomicSuperDup.bed.gz";
+		$IGVS{1}{6}{name}="Segmental Duplications";
+			
+		##### SV track #### panel 2
+		
+		if ( -e "$projectDir/SVs/$nameStemJoinF/SV-CNV".$sample2batchExt{$cSample}.".$cSample.igv.bed.gz"){
+			$IGVS{2}{1}{path}="$session_target_path/SVs/$nameStemJoinF/SV-CNV".$sample2batchExt{$cSample}.".$cSample.igv.bed.gz" ;
+			$IGVS{2}{1}{name}="ClinSV $cSample";
+			
+		}else{
+			print  "lumpy variants not present: $projectDir/SVs/$nameStemJoinF/SV-CNV".$sample2batchExt{$cSample}.".$cSample.igv.bed.gz\n";
+		}		
+		
+		##### discordant reads #### panel 3
+		if(-e "$projectDir/SVs/$cSample/lumpy/bed/$cSample.discordants.bed.gz"){ $IGVS{3}{1}{path}="$session_target_path/SVs/$cSample/lumpy/bed/$cSample.discordants.bed.gz"; }
+		elsif(-e "$projectDir/alignments/bed/$cSample.discordants.bed.gz"){ $IGVS{3}{1}{path}="$session_target_path/alignments/bed/$cSample.discordants.bed.gz"; }
+		$IGVS{3}{1}{name}="Discordant pairs $cSample";
+		$IGVS{3}{1}{displayMode}="SQUISHED";
+		$IGVS{3}{1}{featureVisibilityWindow}=1000000;
+				
+		if(-e "$S_default_track_path/FR05812622.discordants.bed.gz"){ # control NA12878 for comparison
+			$IGVS{3}{2}{path}="$S_default_track_path_xml/FR05812622.discordants.bed.gz";
+			$IGVS{3}{2}{name}="Discordant pairs NA12878";
+			$IGVS{3}{2}{featureVisibilityWindow}=1000000;
+		}	
+		
+		
+		##### splitters reads #### panel 4
+		if(-e "$projectDir/SVs/$cSample/lumpy/bed/$cSample.splitters.bed.gz"){ $IGVS{4}{1}{path}="$session_target_path/SVs/$cSample/lumpy/bed/$cSample.splitters.bed.gz"; }
+		elsif(-e "$projectDir/alignments/bed/$cSample.splitters.bed.gz"){ $IGVS{4}{1}{path}="$session_target_path/alignments/bed/$cSample.splitters.bed.gz"; }
+		$IGVS{4}{1}{name}="Split reads $cSample";
+		$IGVS{4}{1}{displayMode}="SQUISHED";
+		$IGVS{4}{1}{featureVisibilityWindow}=1000000;
+		
+		if(-e "$S_default_track_path/FR05812622.splitters.bed.gz"){ # control NA12878 for comparison
+			$IGVS{4}{2}{path}="$S_default_track_path_xml/FR05812622.splitters.bed.gz";
+			$IGVS{4}{2}{name}="Split reads NA12878";
+			$IGVS{4}{2}{featureVisibilityWindow}=1000000;
+		}
+		
+		
+		##### KDB #### panel 5
+		$IGVS{5}{1}{path}="$S_default_track_path_xml/MGRB-SV.igv.bed.gz";
+		$IGVS{5}{1}{name}="KCCG DB";
+		
+		##### DGV #### panel 6
+		$IGVS{6}{1}{path}="$S_default_track_path_xml/GRCh37_hg19_variants_2015-07-23.igv.bed.gz";
+		$IGVS{6}{1}{name}="DGV";
+		$IGVS{6}{1}{displayMode}="EXPANDED";
+		
+
+		$IGVS{6}{2}{path}="$S_default_track_path_xml/DGV_1kG_2015-07-18.igv.bed.gz";
+		$IGVS{6}{2}{name}="DGV 1kG";
+		$IGVS{6}{2}{displayMode}="EXPANDED";
+
+		
+		open(OUT,">$S_igv_dir/$cSample.xml") || die "can not write to $S_igv_dir/$cSample.xml";
+		$IGVOpt{dividerFractions}="0.3,0.4,0.5,0.6,0.7,0.8";
+		my $outString=igvSession(\%IGVS,\%IGVOpt,$session_target_path); print OUT $$outString;
+		close(OUT);	
+		
+		if (length($projectDir_host)<1){
+			print "xml file: $S_igv_dir/$cSample.xml\n";
+		}else{
+			print "xml file: $projectDir_host/igv/$cSample.xml\n";
+		}
+	}
+
+	
+}
+
+
+
+
+sub igvSession{ 
+	# %IGVS igv session hash $IGVS{panelNumber}{TrackNumber}{option}=""; 
+	
+	my($cIGVS,$cIGVOpt,$session_target_path)=@_;
+	my %IGVS=%{$cIGVS};
+	my %IGVOpt=%{$cIGVOpt};
+	
+	my %defaultTrack;
+	
+	
+	my $ENSEMBLEgenes=(length($projectDir_host)>0) ? "$S_ref_data_host/annotation/Homo_sapiens.GRCh37.75.gff.gz":"$S_ref_data/annotation/Homo_sapiens.GRCh37.75.gff.gz";
+	
+	$defaultTrack{"org.broad.igv.track.DataSourceTrack"}={"altColor"=>"255,0,0","autoScale"=>"true", "clazz"=>"org.broad.igv.track.DataSourceTrack", "color"=>"102,102,102", 
+	"displayMode"=>"COLLAPSED", "featureVisibilityWindow"=>"-1", "fontSize"=>"10", "normalize"=>"false", "renderer"=>"BAR_CHART", 
+	"sortable"=>"true", "visible"=>"true", "windowFunction"=>"mean"};
+
+	$defaultTrack{"org.broad.igv.track.FeatureTrack"}={"altColor"=>"0,0,178","autoScale"=>"false", "clazz"=>"org.broad.igv.track.FeatureTrack", "color"=>"0,0,178", 
+	"displayMode"=>"SQUISHED", "featureVisibilityWindow"=>"-1", "fontSize"=>"10", "renderer"=>"BASIC_FEATURE", 
+	"sortable"=>"false", "visible"=>"true", "windowFunction"=>"count"};
+	
+	$defaultTrack{"DataRange"}={"baseline"=>"0.0", "drawBaseline"=>"true", "flipAxis"=>"false", "maximum"=>"66.8", "minimum"=>"0.0", "type"=>"LINEAR"};
+	
+	$IGVOpt{dividerFractions}="0.33,0.52,0.72,0.89" if !exists($IGVOpt{dividerFractions});
+	
+	# fill track options in with default values
+	foreach my $cPanel (sort {$a <=> $b} keys %IGVS){
+
+		foreach my $cTrack (sort {$a <=> $b} keys %{$IGVS{$cPanel}}){
+		
+# 			print STDERR $IGVS{$cPanel}{$cTrack}{"path"}." $cPanel}{$cTrack\n";
+			my $cBaseName=basename($IGVS{$cPanel}{$cTrack}{"path"});
+			my $cClazz=($cBaseName =~ /[.]bw$/)? "org.broad.igv.track.DataSourceTrack":"org.broad.igv.track.FeatureTrack";
+			$IGVS{$cPanel}{$cTrack}{"clazz"}=$cClazz;
+			$IGVS{$cPanel}{$cTrack}{"id"}=$IGVS{$cPanel}{$cTrack}{"path"};
+			$IGVS{$cPanel}{$cTrack}{"name"}=$cBaseName if !exists($IGVS{$cPanel}{$cTrack}{"name"});
+			
+			foreach my $cOption (keys %{$defaultTrack{$cClazz}}){
+				if(!exists($IGVS{$cPanel}{$cTrack}{$cOption})){
+					$IGVS{$cPanel}{$cTrack}{$cOption}=$defaultTrack{$cClazz}{$cOption};
+				}
+			}
+			if($cClazz eq "org.broad.igv.track.DataSourceTrack"){
+				foreach my $cOption (keys %{$defaultTrack{"DataRange"}}){
+					if(!exists($IGVS{$cPanel}{$cTrack}{"DataRange"}{$cOption})){
+						$IGVS{$cPanel}{$cTrack}{"DataRange"}{$cOption}=$defaultTrack{"DataRange"}{$cOption};
+					}
+				}
+			}
+			
+			
+		}
+	}
+	
+
+#### output the xml
+my $xmlOUT="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>
+<Session genome=\"b37\" hasGeneTrack=\"true\" hasSequenceTrack=\"true\" locus=\"1:197493130-197514036\" version=\"8\">
+\t<Resources>\n";
+	foreach my $cPanel (sort {$a <=> $b} keys %IGVS){
+		foreach my $cTrack (sort {$a <=> $b} keys %{$IGVS{$cPanel}}){
+			$xmlOUT.="\t\t<Resource path=\"".$IGVS{$cPanel}{$cTrack}{"path"}."\"/>\n";
+		}
+	}
+
+	$xmlOUT.="\t\t<Resource path=\"$ENSEMBLEgenes\"/>\n";
+    $xmlOUT.="\t</Resources>\n";
+    
+foreach my $cPanel (sort {$a <=> $b} keys %IGVS){
+
+	my $cPanelName=($cPanel eq 1)?  "DataPanel":"Panel$cPanel";
+	$xmlOUT.="\t<Panel height=\"390\" name=\"$cPanelName\" width=\"1133\">\n";
+
+	foreach my $cTrack (sort {$a <=> $b} keys %{$IGVS{$cPanel}}){
+		
+		my $cTrackOption=""; foreach my $cOption (sort keys %{$IGVS{$cPanel}{$cTrack}}){ next if $cOption eq "DataRange"; $cTrackOption.="$cOption=\"".$IGVS{$cPanel}{$cTrack}{$cOption}."\" ";	}
+		
+		if(exists($IGVS{$cPanel}{$cTrack}{"DataRange"})){
+		
+			my $cDataROption=""; foreach my $cOption (sort keys %{$IGVS{$cPanel}{$cTrack}{"DataRange"}}){ $cDataROption.="$cOption=\"".$IGVS{$cPanel}{$cTrack}{"DataRange"}{$cOption}."\" ";	}
+			$xmlOUT.="\t\t<Track $cTrackOption >\n\t\t\t<DataRange $cDataROption/>\n\t\t</Track>\n";
+		}else{ $xmlOUT.="\t\t<Track $cTrackOption />\n"; }
+		
+	}
+	$xmlOUT.="\t</Panel>\n";
+
+}
+
+$xmlOUT.="\t<Panel height=\"126\" name=\"FeaturePanel\" width=\"1133\">
+\t\t<Track altColor=\"0,0,178\" autoScale=\"false\" color=\"0,0,178\" displayMode=\"EXPANDED\" featureVisibilityWindow=\"-1\" fontSize=\"10\" id=\"Reference sequence\" name=\"Reference sequence\" sortable=\"false\" visible=\"true\"/>
+\t\t<Track altColor=\"0,0,178\" autoScale=\"false\" clazz=\"org.broad.igv.track.FeatureTrack\" color=\"0,0,178\" colorScale=\"ContinuousColorScale;0.0;251.0;255,255,255;0,0,178\" displayMode=\"EXPANDED\" featureVisibilityWindow=\"-1\" fontSize=\"10\" height=\"35\" id=\"b37_genes\" name=\"Gene\" renderer=\"BASIC_FEATURE\" sortable=\"false\" visible=\"true\" windowFunction=\"count\">
+\t\t\t<DataRange baseline=\"0.0\" drawBaseline=\"true\" flipAxis=\"false\" maximum=\"251.0\" minimum=\"0.0\" type=\"LINEAR\"/>
+\t\t</Track>
+\t<Track altColor=\"0,0,178\" autoScale=\"false\" clazz=\"org.broad.igv.track.FeatureTrack\" color=\"0,0,178\" displayMode=\"SQUISHED\" featureVisibilityWindow=\"1000000\" fontSize=\"10\" id=\"$ENSEMBLEgenes\" name=\"ENSEMBL Genes\" renderer=\"BASIC_FEATURE\" sortable=\"false\" visible=\"true\" windowFunction=\"count\"/>
+\t</Panel>
+\t<PanelLayout dividerFractions=\"".$IGVOpt{dividerFractions}."\"/>
+\t\t<HiddenAttributes>
+\t\t\t<Attribute name=\"DATA FILE\"/>
+\t\t\t<Attribute name=\"DATA TYPE\"/>
+\t\t\t<Attribute name=\"NAME\"/>
+\t\t</HiddenAttributes>
+</Session>";
+
+return \$xmlOUT;
+
+}
+
+
+
+
+
+########################################
+######################################## ClinSV functions
+########################################
+
+
+sub getJobsToRun {
+
+	############### check which sh scripts are already submitted to the queue # does not work for express queue
+	$jobsAsUsrGrp=0;
+
+	foreach $cA (@shScriptOrder){
+	
+		($r_JobType, $r_JobSubType, $r_JobUnit)=@$cA;
+
+		next if (!exists($runSteps{$r_JobType}) and !exists($runSteps{all}) );
+			
+		$cJ=$J{$r_JobType}{$r_JobSubType}{$r_JobUnit};
+			
+		############ if in force mode, delete the .o and .e files
+		if($force){
+			print "# -force option set. Unlink $$cJ{rShStem}.e and $$cJ{rShStem}.o \n\n";
+			if($S_AskBeforeSub2){ print "# Press enter to continue. Enter \"all\" to not ask again\n\n"; $tmp=<STDIN>; chomp($tmp); $S_AskBeforeSub2=0 if $tmp eq "all"; }
+			unlink("$$cJ{rShStem}.e") if ( -e "$$cJ{rShStem}.e");
+			unlink("$$cJ{rShStem}.o") if ( -e "$$cJ{rShStem}.o");
+		}
+		
+		$cJobsToRun{$r_JobType}{$r_JobSubType}{$r_JobUnit}++;
+		$aJobsToRun{$r_JobType}{$r_JobSubType}{$r_JobUnit}++;
+		$TotalJobs++;
+
+	}
+
+}
+
+sub executeAllJobs {
+
+
+	$jobsRemaining=1;
+	$jobsScheduled=1;
+	while( $jobsRemaining>0 or $jobsScheduled>0 ){
+		
+		$jobsRemaining=0;
+		$jobsScheduled=0;
+		undef %remainingJobTyp;
+		
+		
+		foreach $cA (@shScriptOrder){
+	
+			($r_JobType, $r_JobSubType, $r_JobUnit)=@$cA;
+					
+			next if !exists($cJobsToRun{$r_JobType}{$r_JobSubType}{$r_JobUnit});
+			$cJ=$J{$r_JobType}{$r_JobSubType}{$r_JobUnit};
+					
+			$jobsRemaining++;	
+			print "# trying to submit : $$cJ{rShStem}.sh \n" if $verbose;
+			
+
+			############ check if job has finished successfully, if yes skip and delete from cJobsToRun
+			checkExitStatusJob:
+
+			$rWallTime=0;
+			if(checkExitStatus($$cJ{rShStem})==0){
+				print "# OK # job $r_JobType, $r_JobSubType, $r_JobUnit ran successfully (exit=0) -> skip : $$cJ{rShStem}.sh\n\n";
+				$TotalWallTime+=$rWallTime;
+				$TotalWallTimePerStep{$r_JobType}+=$rWallTime;
+				delete($cJobsToRun{$r_JobType}{$r_JobSubType}{$r_JobUnit});
+				$jobsRemaining--;	
+				next;
+			}
+			
+			$remainingJobTyp{$r_JobType}++;
+			if($S_AskBeforeSub>0){
+				print "# continue with $r_JobType, $r_JobSubType, $r_JobUnit: $$cJ{rShStem}.sh\n"; 
+				print "# Press enter to continue. Enter \"all\" to not ask again. Enter \"f\" to fake a correct exit status for this job.\n\n"; $tmp=<STDIN>; chomp($tmp); 
+				$S_AskBeforeSub=0 if $tmp eq "all";
+				if ($tmp eq "f"){ fakeExistStatus("$$cJ{rShStem}"); goto checkExitStatusJob; }
+			}
+			
+			############ check if dependencies are resolved
+			if(checkDependencies($$cJ{rDependencies})!=0){
+				print "# WAIT # dependencies not resolved yet for job $r_JobType, $r_JobSubType, $r_JobUnit : $$cJ{rShStem}.sh\n\n" if $S_AskBeforeSub;# if ($jobMessage{dependency}{$r_JobType}{$r_JobSubType}{$r_JobUnit}++) == 0;
+				#$S_AskBeforeSub++ if $S_AskBeforeSub==1;
+				next;
+			}
+			
+			executeJob($r_JobType,$r_JobSubType,$r_JobUnit);
+			$jobsScheduled++;
+
+		}
+	
+		$cWaitMin=sprintf("%.0f",rand(10)+5); 
+		$remeiningSteps=join(",",( sort { $allStepsH{$a} <=> $allStepsH{$b} } keys %remainingJobTyp ));
+		print "# ".strftime("%d/%m/%Y\ %H:%M:%S",localtime).
+		" Project $projectDirName $nameStemJoint | Total jobs $TotalJobs | Remaining jobs $jobsRemaining | Remaining steps $remeiningSteps  $jobsScheduled | Total time: ".sprintf("%.0f",$TotalWallTime)." min\n\n";
+
+	}
+	
+	print "# Everything done! Exit\n\n";
+	
+	
+	
+	
+	### get time stamp first and last job
+	
+
+}
+
+sub executeJob{
+
+	($r_JobType,$r_JobSubType,$r_JobUnit)=@_;
+	$cJ=$J{$r_JobType}{$r_JobSubType}{$r_JobUnit};
+	
+	# allow a certain number of rexecutions for different scripts
+	$dieMssg="# ERROR # this script already failed in this ClinSV execution. $$cJ{rShStem}.e \n";
+	if($r_JobType eq "ir"){ die $dieMssg if $$cJ{rExecutionCount}>3; }
+	elsif($r_JobType eq "hc"){ die $dieMssg if $$cJ{rExecutionCount}>2; }
+	elsif($r_JobType eq "bigwig"){ die $dieMssg if $$cJ{rExecutionCount}>2; }
+	else{ die $dieMssg if exists($$cJ{rExecutionCount}); }
+	
+		
+	############ delete old .o and .e files if exists to not get confused
+	unlink("$$cJ{rShStem}.e") if ( -e "$$cJ{rShStem}.e");
+	unlink("$$cJ{rShStem}.o") if ( -e "$$cJ{rShStem}.o");
+
+	############ prompt qsub command
+	$cStTime=time();
+	$cQcmd="sh $$cJ{rShStem}.sh &> $$cJ{rShStem}.e"; # $waitStringString 
+	print STDERR " ### executing: $cQcmd  ...  \n\n";
+	
+	$existStatus=system($cQcmd);
+	
+	$cEnTime=time();
+	$cWallTimePassed=$cEnTime-$cStTime;
+		
+	print STDERR " ### finished after (hh:mm:ss): ".sec_to_hhmmss($cWallTimePassed)."\n";
+	print STDERR " ### exist status: $existStatus\n\n";
+	
+	die "\n\n ***** error exist status != 0 ($existStatus), please check $$cJ{rShStem}.e for more information\n\n" if $existStatus!=0;
+	
+	open(OUTFE, ">$$cJ{rShStem}.o") || die "can not open $$cJ{rShStem}.o for writing";
+	print OUTFE "======================================================================================\n";
+	print OUTFE "Exit Status: $existStatus\n";
+	print OUTFE "Walltime: ".sec_to_hhmmss($cWallTimePassed)."\n";
+	print OUTFE "======================================================================================\n";
+	close(OUTFE);
+		
+	$TotalWallTime+=$rWallTime;
+	$TotalWallTimePerStep{$r_JobType}+=$rWallTime;
+	delete($cJobsToRun{$r_JobType}{$r_JobSubType}{$r_JobUnit});
+	$jobsRemaining--;	
+				
+	$jobsAsUsrGrp++;
+	$$cJ{rExecutionCount}++;
+	
+	return 0;
+	
+}
+
+
+
+
+
+
+
+
+sub checkExitStatus{
+
+	($rShStem)=@_;
+	
+	$rExitStatus=(-1);
+	if(! -e "$rShStem.o"){ return (-2); }
+	open(IN1, "tail -n 13 $rShStem.o | ") || return (-2);
+	while(<IN1>){ 
+		if(/Exit Status: +([0-9]+)/){ $rExitStatus=$1; }
+		if(/Walltime: +([0-9]+):([0-9]+):([0-9]+)/){  $rWallTime+=$1*60+$2+($3/60);  }
+	}close(IN1);
+    #print STDERR "rExitStatus: $rExitStatus, rWallTime: $rWallTime\n";
+	return $rExitStatus;
+}
+
+sub fakeExistStatus{
+
+($rJobStem)=@_;
+
+open(OUTFE, ">$rJobStem.o") || die "can not open $rJobStem.o for writing";
+print OUTFE "======================================================================================
+Exit Status: 0
+Walltime: 00:00:00
+======================================================================================\n";
+close(OUTFE);
+
+}
+
+sub setUpJ { 
+
+	($r_JobType,$r_JobSubType,$r_JobUnit,$r_OutDir,$r_TmpDir)=@_; 
+	$r_JobName="$r_JobType.$r_JobSubType.$r_JobUnit";
+	$J{$r_JobType}{$r_JobSubType}{$r_JobUnit}{rJobName}=$r_JobName;
+	$J{$r_JobType}{$r_JobSubType}{$r_JobUnit}{rShStem}="$r_OutDir/sh/".$r_JobName;
+	
+	push @shScriptOrder, [$r_JobType, $r_JobSubType, $r_JobUnit];
+	
+	make_path($r_OutDir."/sh") if (! -d $r_OutDir."/sh");
+	make_path($r_TmpDir) if $r_TmpDir and (! -d $r_TmpDir);
+	
+	return $J{$r_JobType}{$r_JobSubType}{$r_JobUnit};	
+	
+}
+
+sub checkDependencies{ # check if the dependent job will be either executed or if the dependent previous job finished with exit 0
+	my ($aDep)=@_;
+	foreach $cDep (@$aDep){
+		my ($r_JobType,$r_JobSubType,$r_JobUnit,$waitType)=@$cDep;
+			
+		die "rJobType $r_JobType does not exist\n" if !exists($J{$r_JobType});
+		die "rJobSubType $r_JobSubType in $r_JobType does not exist\n" if !exists($J{$r_JobType}{$r_JobSubType});
+		die "rJobUnit $r_JobUnit does not exist in $r_JobType,$r_JobSubType \n" if !exists($J{$r_JobType}{$r_JobSubType}{$r_JobUnit}) and $r_JobUnit ne "all";
+		
+		@tJobUnit=($r_JobUnit eq "all")? (sort keys %{$J{$r_JobType}{$r_JobSubType}}):($r_JobUnit);
+				
+		foreach my $cJobUnit (@tJobUnit){
+			my($cJ)=$J{$r_JobType}{$r_JobSubType}{$cJobUnit};
+			
+			if (!exists ($$cJ{rExitStatusOK})){
+				$$cJ{rExitStatusOK}++ if checkExitStatus($$cJ{rShStem})==0;
+			}
+			next if exists ($$cJ{rExitStatusOK}); # dependency finished OK
+			
+			if (!exists($aJobsToRun{$r_JobType}{$r_JobSubType}{$cJobUnit})){
+				
+				die "# Dependency $r_JobType,$r_JobSubType,$cJobUnit rJobID: $$cJ{rJobID} not finished successfully ".
+				"and not part of this ClinSV execution (-r $runString). $$cJ{rShStem}.o \n".
+				"# Add $r_JobType to run steps -r $runString\n";
+			}
+			
+			if ( !exists($$cJ{rJobID}) ){
+				print "# Dependency $r_JobType,$r_JobSubType,$cJobUnit rJobID: $$cJ{rJobID} not finished successfully and not scheduled. $$cJ{rShStem}.o \n"  if $verbose;
+				return 1;	
+			}
+			#
+
+			print "# waiting for dependency $r_JobType,$r_JobSubType,$cJobUnit rJobID: $$cJ{rJobID} $$cJ{rShStem}.o  \n" if $verbose;
+			return 1;	
+			
+		}
+	}
+	return 0;
+}
+
+
+
+
+
+sub createSampleInfoFromInput {
+
+	if (-e $sampleInfoFile){
+		
+		print "sample info already created\n";
+		return;
+	}
+	
+	open(OUT," | sort > $sampleInfoFile") || die "can not open ";
+
+	foreach (glob("$inputAlignDir")){
+ 
+		$inBraw=$_;
+		$inB=abs_path($_); 
+		$inBFileName=basename($_);
+		
+		$cRG=""; #@RG	ID:H75MTCCXX-4-150622_LP0403704-DCT_D3	PL:ILLUMINA	PU:H75MTCCXX.4	LB:150622_LP0403704-DCT_D3	SM:HSP_10A	CN:kccg
+		$lSample="";
+		open(IN, "samtools view -H $inB | ") || die "can not open samtools view -H $inB"; 
+		while(<IN>){ chomp; 
+		
+			if (/^\@RG/){$cRG=$_;
+				@t1=split("\t",$cRG);
+				undef %h; foreach (@t1){ @t2=split(":",$_); $h{$t2[0]}=$t2[1]; }
+				
+				($cSample,$cReadGroupID,$cRead)=($h{SM},$h{ID},$h{LB});
+				print OUT "$cSample\t$cReadGroupID\t$cRead\t$inB\n"; 
+				
+				if(length($lSample)>0 and $lSample ne $cSample){ die "multiple samples in same bam file\n"; }
+				$lSample=$cSample;
+			}
+
+		}close(IN);
+		
+		
+		make_path("$projectDir/alignments/$h{SM}/sh") if (! -e "$projectDir/alignments/$h{SM}/sh");
+		print STDERR "ln -s $inB $projectDir/alignments/$h{SM}/$h{SM}.bam\n";
+		print `ln -s $inB $projectDir/alignments/$h{SM}/$h{SM}.bam` if (! -e "$projectDir/alignments/$h{SM}/$h{SM}.bam");
+		
+		if(! -f "$inB.bai"){"\n **** error: Bam index file not found: $inB.bai **** \n"; exit}
+		print STDERR "ln -s $inB.bai $projectDir/alignments/$h{SM}/$h{SM}.bam.bai\n";
+		print `ln -s $inB.bai $projectDir/alignments/$h{SM}/$h{SM}.bam.bai` if (! -e "$projectDir/alignments/$h{SM}/$h{SM}.bam.bai");
+		
+	}
+	close(OUT);
+
+}
+
+sub readSampleInfo {
+	($sampleInfoFile)=@_;
+	print  "# Read Sample Info from $sampleInfoFile\n";
+	open(IN1, "<$sampleInfoFile") || die " nicht gefunden";
+	while(<IN1>){ chomp; 
+		if (/^#/){print  "# skip: ".substr($_,1)."\n"; next;}
+		($cSample,$cReadGroupID,$cRead,$inFQ)=split("\t",$_);
+		$fastq{$cSample}{$cReadGroupID}{$cRead}=$inFQ;
+		print  "# use: $cSample\t$cReadGroupID\t$cRead\t$inFQ\n" if 1; 
+	}close(IN1);
+	
+	print "# ".scalar(keys %fastq)." samples to process\n";
+	print "# If the sample info is correct, please press enter to continue.\n" if $S_AskBeforeSub>0 ;
+	print "# If not, please exit make a copy of sampleInfo.txt, modify it and rerun with -s sampleInfo_mod.txt pointing to the new sample info file. \n\n" if $sampleInfoFile =~ /\/sampleInfo.txt/;
+	print "# If not, please exit and modify $sampleInfoFile. \n\n" if $sampleInfoFile !~ /\/sampleInfo.txt/;
+	$cSTDIN=<STDIN> if $S_AskBeforeSub>0;
+}
+
+sub sec_to_hhmmss {
+  my $hourz=int($_[0]/3600);
+  my $leftover=$_[0] % 3600;
+  my $minz=int($leftover/60);
+  my $secz=int($leftover % 60);
+  return sprintf ("%02d:%02d:%02d", $hourz,$minz,$secz)
+}
+
+
+sub printHelp{
+
+print STDERR "
+### This script runs ClinSV on a single node ###
+Version: 0.9 2019_02_13
+Author: Andre E Minoche
+
+usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref_data [options]
+
+### Options:
+-p Project folder [current_dir]. 
+-r Analysis steps to run [all]. All is equivalent to bigwig,lumpy,cnvnator,annotate,prioritize,qc,igv
+   Multiple steps must be comma separated with no spaces in-between.
+-i Path to input bams [./input/*.bam]. Requires bam index ending to be \"*.bam.bai.\". 
+   Bam and index files can also be soft-links.
+-s Sample information file [./sampleInfo.txt] If not set and if not already present, 
+   such file gets generated from bam file names.
+-f Force specified analysis step(s) and overwrite existing output.
+-a Ask for confirmation before launching next analysis step.
+-n Name stem for joint-called files (e.g joint vcf file) in case different sample grouping exists. 
+   This is necessary if different sets of samples specified wtih -s are analysed within the same 
+   project folder, E.g. a family trio and a set of single proband individuals.
+-l Lumpy batch size. Number of sampels to be joint-called [15]. 
+-ref Path to reference data dir [./refdata-b37].
+-eval Create the NA12878 validation report section [no].
+-h print this help
+
+# To rerun a specific analysis steps:
+clinsv -r annotsv,prioritize -f
+
+
+\n\n";
+
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

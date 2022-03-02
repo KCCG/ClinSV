@@ -1,0 +1,1 @@
+install.packages('knitr', dependencies = TRUE)
