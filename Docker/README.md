@@ -56,11 +56,11 @@ These dependecies also have these dependencies:
 **For Perl**
 - cpanm
  
- **Perl modules**
- - Compress::Zlib
- - Sort::Naturally 
- - List::BinarySearch::XS
- - Excel::Writer::XLSX
- - LWP
- - Bio::DB::Big
+  **Perl modules**
+  - Compress::Zlib
+  - Sort::Naturally 
+  - List::BinarySearch::XS
+  - Excel::Writer::XLSX
+  - LWP
+  - Bio::DB::Big
 
