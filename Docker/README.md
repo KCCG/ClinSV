@@ -1,4 +1,26 @@
 # Docker files
+This folder contains the resources neccessary to build the clinsv v1.0 docker container. The scripts contained within "clinsvScripts.tar.gz", are the scripts found in this repo and contain the structure:
+
+```
+clinsvScripts
+  |
+  └───bin
+  |    | contains "clinsv" found at path ClinSV/clinsv
+  |    | contains "sort_bgzip" found at path ClinSV/sort_bgzip 
+  |    
+  └───clinSV
+  |    |
+  |    └───scripts
+  |         | contains clinsv scripts found at path ClinSV/scripts/
+  |
+  └───perlib
+       |
+       └───My
+           |contains all the perl modules found at path ClinSV/perl_modules/
+
+```
+
+Keep in mind the the "clinsvScripts.tar.gz" only contains the source code of clinsv version v1.0. 
 
 ## Base Image
 The docker image is based on Ubuntu:20.04 LTS.
