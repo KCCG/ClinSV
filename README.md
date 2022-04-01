@@ -33,6 +33,7 @@ Download human genome reference data GRCh38:
 
 ```
 wget https://nci.space/_projects/clinsv_b38/
+tar xf refdata-b38_v1.0.tar
 ```
 
 Download a sample bam to test ClinSV:
