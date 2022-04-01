@@ -32,7 +32,7 @@ This repository contains the source code and Docker files required to run ClinSV
 Download human genome reference data GRCh38:
 
 ```
-wget https://nci.space/_projects/clinsv_b38/
+wget https://nci.space/_projects/clinsv_b38/refdata-b38_v1.0.tar
 tar xf refdata-b38_v1.0.tar
 ```
 
