@@ -122,39 +122,65 @@ RUN cd $clinsv_path/bin && \
 RUN pip3 install numpy
 RUN pip3 install pysam
 
-#installing root 6 (root 5 deprecated)
-RUN cd $clinsv_path && \
-    git clone --branch latest-stable https://github.com/root-project/root.git root_src && \
-    mkdir root_build root_install && cd root_build && \
-    cmake -DCMAKE_INSTALL_PREFIX=../root_install ../root_src && \
-#add -j4 perhaps, means amount of cores available to build
-    cmake --build . -- install
+#Install minconda
+RUN wget -nv http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh 
+RUN sh miniconda.sh -b -p $HOME/miniconda
+ENV PATH="/root/miniconda/condabin:${PATH}"
+# RUN export PATH="/root/miniconda/condabin:$PATH"
+# RUN source $HOME/miniconda/etc/profile.d/conda.sh 
 
-SHELL ["/bin/bash", "-c"] 
 
-RUN mv $clinsv_path/root_install $clinsv_path/root
+#Install root
+RUN conda create -n my_root_env root -c conda-forge
+# SHELL ["conda", "run", "-n", "my_root_env", "/bin/bash", "-c"]
 
-RUN mkdir $clinsv_path/cnvnator-multi && \
-    cd $clinsv_path/cnvnator-multi && \
-    git clone --recursive https://github.com/hall-lab/speedseq 
-    
-RUN cd $clinsv_path/cnvnator-multi/speedseq && \
-#need to remove "-std=c++11" from /app/clinsv/cnvnator-multi/speedseq/src/CNVnator/Makefile , prior to running make
-    sed -i 's/\-std=c++11//g' /$clinsv_path/cnvnator-multi/speedseq/src/CNVnator/Makefile && \
-    source $clinsv_path/root/bin/thisroot.sh && \
-    make cnvnator && \
-    cd $clinsv_path/cnvnator-multi && \
-    ln -s speedseq/bin/cnvnator cnvnator-multi && \
-    ln -s speedseq/bin/cnvnator_wrapper.py . 
+# RUN conda init bash
+# RUN echo "conda activate my_root_env" >> ~/.bashrc
+ENV PATH $PATH:/root/miniconda/envs/my_root_env/bin
+# SHELL ["/bin/bash", "--login", "-c"]
+# SHELL ["conda", "init", "bash"]
+# RUN conda activate my_root_env 
+# RUN conda config --env --add channels conda-forge
+
+# #installing root 6 (root 5 deprecated)
+# RUN cd $clinsv_path && \
+#     git clone --branch latest-stable https://github.com/root-project/root.git root_src && \
+#     mkdir root_build root_install && cd root_build && \
+#     cmake -DCMAKE_INSTALL_PREFIX=../root_install ../root_src && \
+# #add -j4 perhaps, means amount of cores available to build
+#     cmake --build . -- install
+
+
+
+# RUN mv $clinsv_path/root_install $clinsv_path/root
+
+
 
 # Install Lumpy
 RUN cd $clinsv_path && \
     git clone --recursive https://github.com/arq5x/lumpy-sv.git && \
     cd lumpy-sv && \
     make
-
 RUN cd $clinsv_path/bin && \
     ln -s ../lumpy-sv/bin/lumpy lumpy
+    
+# Install CNVnator
+RUN mkdir $clinsv_path/cnvnator-multi && \
+    cd $clinsv_path/cnvnator-multi && \
+    git clone --recursive https://github.com/hall-lab/speedseq 
+
+ENV ROOTSYS /root/miniconda/envs/my_root_env/
+ENV LD_LIBRARY_PATH /root/miniconda/envs/my_root_env/lib
+
+RUN cd $clinsv_path/cnvnator-multi/speedseq && \
+#need to remove "-std=c++11" from /app/clinsv/cnvnator-multi/speedseq/src/CNVnator/Makefile , prior to running make
+    sed -i 's/\-std=c++11/-std=c++17/g' /$clinsv_path/cnvnator-multi/speedseq/src/CNVnator/Makefile && \
+    make cnvnator && \
+    cd $clinsv_path/cnvnator-multi && \
+    ln -s speedseq/bin/cnvnator cnvnator-multi && \
+    ln -s speedseq/bin/cnvnator_wrapper.py . 
+
+
 
 # Install tabix perl module
 RUN cd $clinsv_path/perl && \
@@ -179,5 +205,8 @@ RUN apt install -y r-base && \
 # Install texlive
 RUN apt -y install texlive-latex-extra
 
-# Add entry point
+# # Add entry point
+# COPY entrypoint.sh ./
+# RUN ["chmod", "+x", "entrypoint.sh"]
+# ENTRYPOINT ["./entrypoint.sh"]
 ENTRYPOINT [ "perl", "/app/clinsv/bin/clinsv" ]
