@@ -188,6 +188,7 @@ RUN cd $clinsv_path/ && \
     #Use scripts from dev branch for now, remove this section to only use master
     cd $clinSV_repo_path && \
     git checkout dev-ClinSV-v1.1 && \
+    git pull && \
     cd .. && \
 
     mv $clinSV_repo_path/clinsv bin/ && \
