@@ -4,19 +4,10 @@ FROM ubuntu:20.04
 # Set the working directory to /app
 WORKDIR /app
 
-RUN mkdir clinsv 
-
-ADD clinsvScripts.tar.gz /app
+RUN mkdir clinsv
 ADD installKNITR.r /app
-
 # Enviornment variables
 ENV clinsv_path "/app/clinsv"
-
-# Move all contents of clinsv scripts to the clinsv folder
-RUN mv clinsvScripts/* clinsv/
-RUN rm -r clinsvScripts
-
-ENV PATH="/app/clinsv/bin:${PATH}"
 
 # Get links to repos
 RUN apt-get update
@@ -28,6 +19,9 @@ ENV TZ=Australia/Sydney
 RUN apt-get -y install build-essential
 
 RUN apt-get -y install wget curl git nano
+
+# Install texlive
+RUN apt -y install texlive-latex-extra
 
 # Dependencies for Tabix and Big perl modules
 RUN apt-get -y install zlib1g-dev 
@@ -82,7 +76,10 @@ RUN cd $clinsv_path && \
     cd .. && \
     rm -r htslib* samtools* bcftools*
 
-# Create symbolic links to all the samtools  tools
+# Set up clinsv bin folder
+RUN mkdir clinsv/bin
+
+# Create symbolic links to all the samtools tools
 RUN cd $clinsv_path/bin && \
     ln -s ../samtools/bin/bcftools bcftools && \
     ln -s ../samtools/bin/samtools samtools && \
@@ -96,6 +93,7 @@ RUN mkdir $clinsv_path/bigWigTools && \
     wget http://hgdownload.soe.ucsc.edu/admin/exe/linux.x86_64.v369/wigToBigWig && \
     chmod ug+x $clinsv_path/bigWigTools/* 
 
+# Create symbolic links to bigwigtools
 RUN cd $clinsv_path/bin && \
     ln -s ../bigWigTools/bigWigToWig bigWigToWig && \
     ln -s ../bigWigTools/wigToBigWig wigToBigWig
@@ -122,39 +120,16 @@ RUN cd $clinsv_path/bin && \
 RUN pip3 install numpy
 RUN pip3 install pysam
 
-#Install minconda
+# Install minconda so we can install root via conda
 RUN wget -nv http://repo.continuum.io/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh 
 RUN sh miniconda.sh -b -p $HOME/miniconda
 ENV PATH="/root/miniconda/condabin:${PATH}"
-# RUN export PATH="/root/miniconda/condabin:$PATH"
-# RUN source $HOME/miniconda/etc/profile.d/conda.sh 
 
-
-#Install root
+# Install root
 RUN conda create -n my_root_env root -c conda-forge
-# SHELL ["conda", "run", "-n", "my_root_env", "/bin/bash", "-c"]
 
-# RUN conda init bash
-# RUN echo "conda activate my_root_env" >> ~/.bashrc
+# Add root install to path
 ENV PATH $PATH:/root/miniconda/envs/my_root_env/bin
-# SHELL ["/bin/bash", "--login", "-c"]
-# SHELL ["conda", "init", "bash"]
-# RUN conda activate my_root_env 
-# RUN conda config --env --add channels conda-forge
-
-# #installing root 6 (root 5 deprecated)
-# RUN cd $clinsv_path && \
-#     git clone --branch latest-stable https://github.com/root-project/root.git root_src && \
-#     mkdir root_build root_install && cd root_build && \
-#     cmake -DCMAKE_INSTALL_PREFIX=../root_install ../root_src && \
-# #add -j4 perhaps, means amount of cores available to build
-#     cmake --build . -- install
-
-
-
-# RUN mv $clinsv_path/root_install $clinsv_path/root
-
-
 
 # Install Lumpy
 RUN cd $clinsv_path && \
@@ -180,8 +155,6 @@ RUN cd $clinsv_path/cnvnator-multi/speedseq && \
     ln -s speedseq/bin/cnvnator cnvnator-multi && \
     ln -s speedseq/bin/cnvnator_wrapper.py . 
 
-
-
 # Install tabix perl module
 RUN cd $clinsv_path/perl && \
     git clone https://github.com/MinocheAE/tabix.git && \
@@ -202,11 +175,28 @@ RUN cpanm Compress::Zlib && \
 RUN apt install -y r-base && \
     R -f installKNITR.r
 
-# Install texlive
-RUN apt -y install texlive-latex-extra
+ENV clinSV_repo_path="ClinSV"
 
-# # Add entry point
-# COPY entrypoint.sh ./
-# RUN ["chmod", "+x", "entrypoint.sh"]
-# ENTRYPOINT ["./entrypoint.sh"]
+#Add clinsv + scripts from repo
+RUN cd $clinsv_path/ && \
+    mkdir perlib/ && \
+    mkdir perlib/My && \
+    mkdir clinSV && \
+    mkdir clinSV/scripts && \
+    git clone https://github.com/KCCG/ClinSV.git && \
+    
+    #Use scripts from dev branch for now, remove this section to only use master
+    cd $clinSV_repo_path && \
+    git checkout dev-ClinSV-v1.1 && \
+    cd .. && \
+
+    mv $clinSV_repo_path/clinsv bin/ && \
+    mv $clinSV_repo_path/sort_bgzip bin/ &&\
+    mv $clinSV_repo_path/perl_modules/*  perlib/My && \
+    mv $clinSV_repo_path/scripts/* clinSV/scripts/ &&\
+    rm -rf $clinSV_repo_path/
+
+ENV PATH="/app/clinsv/bin:${PATH}"
+
+# Add entry point
 ENTRYPOINT [ "perl", "/app/clinsv/bin/clinsv" ]
