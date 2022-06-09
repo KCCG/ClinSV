@@ -178,7 +178,7 @@ if ($S_ref_data_v eq "b37"){
 	$geminiBin="/scratch/gd7/resources/gemini/bin";
 
 	$chrPf='';
-	$wig_line_count=$wig_line_count;
+	$wig_line_count=3140518470;
 	
 }elsif ($S_ref_data_v eq "b38"){
 	
@@ -1411,7 +1411,7 @@ sub printHelp{
 
 print STDERR "
 ### This script runs ClinSV on a single node ###
-Version: 0.9 2019_02_13
+Version: 1.1 2022_05_26
 Author: Andre E Minoche
 
 usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref_data [options]
