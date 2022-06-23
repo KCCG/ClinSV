@@ -459,7 +459,7 @@ sub lumpy {
 				print OUT "readLArr[$outStemSC]=\$(samtools view  $projectDir/alignments/$cSample/$cSample.bam ".$chrPf."1:1000000-1100000 | cut -f 10 | awk '{ print length}' | sort -rn | awk '(NR==1){print}' )\n";
 				
 				# Test to make sure readLArr[$outStemSC] is not empty as we the bam could be aligned to a different naming convention. If so try the hg19 naming convention
-				print OUT "if [ -z '$readLArr[$outStemSC' ]; then readLArr[$outStemSC]=\$(samtools view  $projectDir/alignments/$cSample/$cSample.bam chr1:1000000-1100000 | cut -f 10 | awk '{ print length}' | sort -rn | awk '(NR==1){print}' ); fi\n";
+				print OUT "if [ -z \"$readLArr[$outStemSC\" ]; then readLArr[$outStemSC]=\$(samtools view  $projectDir/alignments/$cSample/$cSample.bam chr1:1000000-1100000 | cut -f 10 | awk '{ print length}' | sort -rn | awk '(NR==1){print}' ); fi\n";
 				
 				print OUT "read -r mean stdev <<< \$( samtools view -r $cReadGroupID $projectDir/alignments/$cSample/$cSample.bam | python3 $S_SV_scriptDir/pairend_distro-a1.py -r \${readLArr[$outStemSC]} -X 2 -N 100000 -o $r_PreProc/$cReadGroupID.pe.histo | cut -d \":\" -f 2 )\n";		
 				print OUT "meanArr[$outStemSC]=\$mean;stdevArr[$outStemSC]=\$stdev;\n";
