@@ -177,10 +177,12 @@ RUN apt install -y r-base && \
 
 ENV clinSV_repo_path="ClinSV"
 
+
 #Add clinsv + scripts from repo
 RUN cd $clinsv_path/ && \
     mkdir perlib/ && \
     mkdir perlib/My && \
+    pwd &&\
     mkdir clinSV && \
     mkdir clinSV/scripts && \
     git clone https://github.com/KCCG/ClinSV.git && \
