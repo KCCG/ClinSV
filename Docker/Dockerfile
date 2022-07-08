@@ -189,12 +189,12 @@ RUN cd $clinsv_path/ && \
     
     #Use scripts from dev branch for now, remove this section to only use master
     cd $clinSV_repo_path && \
-     pwd &&\
     git checkout dev-ClinSV-v1.1 && \
     git pull && \
     cd .. && \
 
     mv $clinSV_repo_path/clinsv bin/ && \
+         pwd &&\
     mv $clinSV_repo_path/sort_bgzip bin/ &&\
     mv $clinSV_repo_path/perl_modules/*  perlib/My && \
     mv $clinSV_repo_path/scripts/* clinSV/scripts/ &&\
