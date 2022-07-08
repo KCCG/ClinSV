@@ -38,6 +38,7 @@ GetOptions ("p=s" => \$projectDir,
 		    "f"  => \$force,	
 		    "a"  => \$S_AskBeforeSub,
 		    "ref=s"  => \$S_ref_data,
+			"hg19" => \$isHg19,
 		    "h"  => \$help,
 		    "l=i" => \$lumpyBatchSize,
 		    "eval"  => \$eval,
@@ -177,7 +178,13 @@ if ($S_ref_data_v eq "b37"){
 	$geminiRscr="/scratch/gd7/resources/kccg-gemini";
 	$geminiBin="/scratch/gd7/resources/gemini/bin";
 
-	$chrPf='';
+	if ($isHg19)
+	{
+		$chrPf='chr';
+	}else{
+		$chrPf='';
+	}
+	
 	$wig_line_count=3140518470;
 	
 }elsif ($S_ref_data_v eq "b38"){
@@ -217,7 +224,6 @@ if ($S_ref_data_v eq "b37"){
 	$chrPf='chr';
 	$wig_line_count=3220490784;
 }
-
 
 ############### check if user defined run steps are part of above defined pipeline
 
@@ -397,9 +403,8 @@ sub lumpy {
 		# get mean and stdev per sample
 		open(OUT,">$$cJ{rShStem}.sh");
 		print OUT "$r_head";
-		
-		#Temp changed $.chr variable to chr
-		print OUT "perl $S_SV_scriptDir/filterConcordantPairs.pl $alignOut/$cSample.bam 100:100 chr1:1000001-5000000 $refFasta | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.discordants -o $r_OutDir/$cSample.discordants.bam -  &\n";
+
+		print OUT "perl $S_SV_scriptDir/filterConcordantPairs.pl $alignOut/$cSample.bam 100:100 ".$chrPf.":1000001-5000000 $refFasta | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.discordants -o $r_OutDir/$cSample.discordants.bam -  &\n";
 		print OUT "samtools view -T $refFasta -h $alignOut/$cSample.bam  | python $S_lumpy_scripts/extractSplitReads_BwaMem -i stdin | awk '\$3 != \"hs37d5\" && \$3 != \"NC_007605\"' | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.splitters -o $r_OutDir/$cSample.splitters.bam - &\n";
 		print OUT "wait\n"; 
 		
@@ -505,7 +510,7 @@ sub lumpy {
 		print OUT "perl -e 'while(<>){ if(/^#/){\$h.=\$_; next;} \@_=split(\"\\t\",\$_); \$c=\$_[0]; if(!exists(\$f{\$c})){ open(\$f{\$c},\">$r_TmpDir/in.\$c.vcf\"); print {\$f{\$c}} \$h; } \n";  
 		print OUT "print {\$f{\$c}} \$_; } foreach (values %f){close} ' $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.vcf \n";			
 
-		print OUT "ls $r_TmpDir/in.*.vcf | xargs -P 12 -t -i{} perl $S_SV_scriptDir/add-depth-to-PE-SR-calls.pl {} $refFasta $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder \n";
+		print OUT "ls $r_TmpDir/in.*.vcf | xargs -P 12 -t -i{} perl $S_SV_scriptDir/add-depth-to-PE-SR-calls.pl {} $refFasta ".$chrPf." $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder \n";
 		print OUT "(grep \"#\" $r_TmpDir/in.".$chrPf."1.out; cat $r_TmpDir/in.*.out | grep -v \"#\" | sort -V -k1,1 -k2,2n ) > $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.f1.vcf\n";	
 		
 
@@ -1436,6 +1441,8 @@ usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref
    project folder, E.g. a family trio and a set of single proband individuals.
 -l Lumpy batch size. Number of sampels to be joint-called [15]. 
 -ref Path to reference data dir [./refdata-b37].
+-hg19 Specify that input bams use hg19 chromosome nomenclature, use when using input bams that are
+	aligned to hg19 along with the reference data dir refdata-b37.
 -eval Create the NA12878 validation report section [no].
 -h print this help
 
