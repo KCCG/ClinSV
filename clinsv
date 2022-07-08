@@ -563,7 +563,7 @@ sub cnvnator {
 		print OUT "-T $r_TmpDir -t 14 -w 100 -b $projectDir/alignments/$cSample/$cSample.bam -o $r_OutDir/cnvnator.$cSample ";
 		print OUT "-c $S_cnvnator_chroms -g $S_ref_data_v --exclude '_,HLA,EBV' \n";	#Excluding superflous contigs	
 		
-		print OUT "perl $S_SV_scriptDir/filterCNVNator.pl $r_OutDir/cnvnator.$cSample.txt $cSample $refFasta $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder\n\n";
+		print OUT "perl $S_SV_scriptDir/filterCNVNator.pl $r_OutDir/cnvnator.$cSample.txt $cSample $refFasta ".$chrPf." $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder\n\n";
 		
 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh;
 		close(OUT);

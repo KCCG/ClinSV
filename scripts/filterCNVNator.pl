@@ -40,12 +40,13 @@ $readLen=150;
 $inBED=shift(@ARGV);
 $cSample=shift(@ARGV);
 $inRef=shift(@ARGV);
+$inRefStyle=shift(@ARGV);
 $projectDir=shift(@ARGV);
 $jobfs=shift(@ARGV);
 $S_SV_control_numSamples=shift(@ARGV);
 $S_control_bw_folder=shift(@ARGV);
 
-if (basename($inRef) =~ /38/){
+if ($inRefStyle =~ /chr/){
 	$chrPf='chr';
 	$Y_chr="chrY";
 	$X_chr="chrX";
