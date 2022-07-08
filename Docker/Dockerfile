@@ -181,14 +181,15 @@ ENV clinSV_repo_path="ClinSV"
 #Add clinsv + scripts from repo
 RUN cd $clinsv_path/ && \
     mkdir perlib/ && \
-        pwd &&\
     mkdir perlib/My && \
+   
     mkdir clinSV && \
     mkdir clinSV/scripts && \
     git clone https://github.com/KCCG/ClinSV.git && \
     
     #Use scripts from dev branch for now, remove this section to only use master
     cd $clinSV_repo_path && \
+     pwd &&\
     git checkout dev-ClinSV-v1.1 && \
     git pull && \
     cd .. && \

@@ -13,11 +13,12 @@ use File::Basename;
 
 $projectDir=shift(@ARGV);
 $inRef=shift(@ARGV);
+$inRefStyle=shift(@ARGV);
 $fileExt=shift(@ARGV);
 $cSample=shift(@ARGV);
 $nameStemJoinF=shift(@ARGV);
 
-if (basename($inRef) =~ /38/){
+if ($inRefStyle =~ /chr/){
 	$chrPf='chr';
 	$Y_chr="chrY";
 	$X_chr="chrX";
