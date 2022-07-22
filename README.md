@@ -24,78 +24,71 @@ For 500 WGS [samples](misc/control_sample_IDs.txt) of the Medical Genome Referen
 
 Please refer to the [manuscript](https://doi.org/10.1186/s13073-021-00841-x) for further details.
 
+# ClinSV version 1.0
+This repository contains the source code and Docker files required to run ClinSV version 1.0. Version 1.0 only supports GRCh38 as the reference genome used. Please refer to release v0.9 to use with ClinSV with reference genome GRCh37 decoy (hs37d5)
+
 ## Download
 
-Download human genome reference data GRCh37 decoy (hs37d5):
+Download human genome reference data GRCh38:
 
 ```
-wget https://nci.space/clinsv/refdata-b37_v0.9.tar
-# check md5sum: 921ecb9b9649563a16e3a47f25954951
-tar xf refdata-b37_v0.9.tar
-refdata_path=$PWD/clinsv/refdata-b37
+wget  https://s3.ccia.org.au/clinsv/clinsv_b38/refdata-b38_v1.0.tar
+tar xf refdata-b38_v1.0.tar
 ```
 
 Download a sample bam to test ClinSV:
 
 ```
-wget https://nci.space/clinsv/NA12878_v0.9.bam
-wget https://nci.space/clinsv/NA12878_v0.9.bam.bai
-input_path=$PWD
+wget https://nci.space/_projects/clinsv_b38/NA12878_b38.bam
+wget  https://s3.ccia.org.au/clinsv/clinsv_b38/NA12878_b38.bam.bai
 ```
 
-The ClinSV software can be downloaded precompiled, as a Singularity image or through Docker. Please refer to the section below.
+The ClinSV software can be downloaded precompiled, as a Docker image. Please refer to the section below.
+
+## File structure to run Docker image
+
+In order to use the docker image your working directory needs to be set up as below:
+```
+Current working directory
+|   |contains your bam files *.bam
+|   |contains your bai files *.bai
+└───clinsv
+|    |
+|    └───refdata-b38
+|    |     |
+|    |     └───refdata-b38
+|    |     |       | /all of refdata-b38's content/ 
+|    
+└───test_run
+      | this is where clinsv generates all its output
 
 
+```
+**Its important to note that the provided b38 ref data (after extracting) needs to be put within a parent folder of the same name as described above.**
 ## Run ClinSV
 
-### Using Singularity
-```
-wget https://nci.space/clinsv/clinsv.sif 
-singularity run clinsv.sif \
-  -i "$input_path/*.bam" \
-  -ref $refdata_path \
-  -p $PWD/project_folder
-
-```
 
 ### Using Docker
 ```
-docker pull kccg/clinsv
+docker pull mrbradley2/clinsv:v1.0
 
+refdata_path=$PWD/clinsv/refdata-b38
+input_path=$PWD
 project_folder=$PWD/test_run
 
-docker run \
--v $refdata_path:/app/ref-data \
--v $project_folder:/app/project_folder \
--v $input_path:/app/input \
-  kccg/clinsv -r all \
+docker run -v $refdata_path:/app/ref-data \
+-v $project_folder:/app/project_folder  \
+-v $input_path:/app/input  \
+--entrypoint "perl" mrbradley2/clinsv:v1.0 /app/clinsv/bin/clinsv \
+-r all \
+-p /app/project_folder/ \
 -i "/app/input/*.bam" \
--ref $refdata_path:/app/ref-data \
--p $project_folder:/app/project_folder
-```
-
-### Linux Native
-
-Download precompiled ClinSV bundle for CentOS 6.8 x86_64
-
-```
-wget https://nci.space/clinsv/ClinSV_x86_64_v0.9.tar.gz
-tar zxf ClinSV_x86_64_v0.9.tar.gz
-clinsv_path=$PWD/clinsv
-
-export PATH=$clinsv_path/bin:$PATH
-clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
+-ref /app/ref-data/refdata-b38 
 ```
 
 ### Compile dependencies from source
-see [INSTALL.md](INSTALL.md)
+see [INSTALL_b38.md](INSTALL_b38.md)
 
-
-## Build 38
-
-To run ClinSV on build 38 please use refdata-b38_v1.0.tar with ClinSV v1.0 from https://nci.space/_projects/clinsv_b38/
-
-So far there there is no Docker nor Singularity image for ClinSV v1.0. ClinSV with its pre-compiled dependencies is in ClinSV_x86_64_v1.0.tar.gz. Please see [INSTALL_b38.md](INSTALL_b38.md) on how to build dependencies from source.
 
 ## ClinSV options
 
@@ -124,6 +117,70 @@ So far there there is no Docker nor Singularity image for ClinSV v1.0. ClinSV wi
 When providing a [pedigree file](misc/sampleInfo.ped), the output will contain additional columns showing e.g. how often a variant was observed among affected and unaffected individuals. The pedigree file has to be named "sampleInfo.ped" and it has to be placed into the project folder.
 
 To mark variants affecting user defined candidate genes, a [gene list](misc/testGene.ids) list has to be placed into the project folder and named "testGene.ids". Gene names have to be as in ENSEMBL GRCh37.
+
+# ClinSV version 0.9
+Install and usage instructions for ClinSV v0.9
+## Download
+
+Download human genome reference data GRCh37 decoy (hs37d5):
+
+```
+wget https://s3.ccia.org.au/clinsv/clinsv/refdata-b37_v0.9.tar
+# check md5sum: 921ecb9b9649563a16e3a47f25954951
+tar xf refdata-b37_v0.9.tar
+refdata_path=$PWD/clinsv/refdata-b37
+```
+
+Download a sample bam to test ClinSV:
+
+```
+wget  https://s3.ccia.org.au/clinsv/clinsv/NA12878_v0.9.bam
+wget  https://s3.ccia.org.au/clinsv/clinsv/NA12878_v0.9.bam.bai
+input_path=$PWD
+```
+
+The ClinSV software can be downloaded precompiled, as a Singularity image or through Docker. Please refer to the section below.
+
+
+## Run ClinSV
+
+### Using Singularity
+```
+wget  https://s3.ccia.org.au/clinsv/clinsv/clinsv.sif 
+singularity run clinsv.sif \
+  -i "$input_path/*.bam" \
+  -ref $refdata_path \
+  -p $PWD/project_folder
+```
+
+### Using Docker
+```
+docker pull kccg/clinsv
+project_folder=$PWD/test_run
+docker run \
+-v $refdata_path:/app/ref-data \
+-v $project_folder:/app/project_folder \
+-v $input_path:/app/input \
+  kccg/clinsv -r all \
+-i "/app/input/*.bam" \
+-ref $refdata_path:/app/ref-data \
+-p $project_folder:/app/project_folder
+```
+
+### Linux Native
+
+Download precompiled ClinSV bundle for CentOS 6.8 x86_64
+
+```
+wget https://nci.space/clinsv/ClinSV_x86_64_v0.9.tar.gz
+tar zxf ClinSV_x86_64_v0.9.tar.gz
+clinsv_path=$PWD/clinsv
+export PATH=$clinsv_path/bin:$PATH
+clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
+```
+
+### Compile dependencies from source
+see [INSTALL.md](INSTALL.md)
 
 ## Hardware requirements
 * based on 30-40x WGS (80GB BAM file): 16 CPUs, 60GB RAM, 200 GB storage
