@@ -178,13 +178,16 @@ if ($S_ref_data_v eq "b37"){
 	$geminiRscr="/scratch/gd7/resources/kccg-gemini";
 	$geminiBin="/scratch/gd7/resources/gemini/bin";
 
+	$refChrPf = ''
+
 	if ($isHg19)
 	{
-		$chrPf='chr';
-	}else{
+		$chrPf='chr';ghnfgh
+
+		
+	}else
 		$chrPf='';
 	}
-	
 	$wig_line_count=3140518470;
 	
 }elsif ($S_ref_data_v eq "b38"){
@@ -222,6 +225,7 @@ if ($S_ref_data_v eq "b37"){
 	# $geminiBin="/scratch/gd7/resources/gemini/bin";
 
 	$chrPf='chr';
+	$refChrPf = 'chr'
 	$wig_line_count=3220490784;
 }
 
@@ -797,7 +801,7 @@ sub qc {
 			make_path($projectDir."/SVs/qc/tmpQC") if (! -d $r_SVDir."/SVs/qc/tmpQC");
 		
 			###### prepare data
-			print OUT "perl $S_SV_scriptDir/validReportPrep.pl $projectDir $refFasta ".$chrPf." \"$fileExt\" $cSample $nameStemJoinF\n\n";
+			print OUT "perl $S_SV_scriptDir/validReportPrep.pl $projectDir $refFasta ".$refChrPf." \"$fileExt\" $cSample $nameStemJoinF\n\n";
 		
 			if($eval){
 			

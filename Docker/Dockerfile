@@ -194,8 +194,8 @@ RUN cd $clinsv_path/ && \
     cd .. && \
 
     mv $clinSV_repo_path/clinsv bin/ && \
-         pwd &&\
     mv $clinSV_repo_path/sort_bgzip bin/ &&\
+             pwd &&\
     mv $clinSV_repo_path/perl_modules/*  perlib/My && \
     mv $clinSV_repo_path/scripts/* clinSV/scripts/ &&\
     rm -rf $clinSV_repo_path/
