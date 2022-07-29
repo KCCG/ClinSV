@@ -184,9 +184,9 @@ if ($S_ref_data_v eq "b37"){
 	{
 		$chrPf='chr';
 
-		
-	}else
+	}else{
 		$chrPf='';
+		
 	}
 	$wig_line_count=3140518470;
 	
