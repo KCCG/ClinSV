@@ -178,11 +178,11 @@ if ($S_ref_data_v eq "b37"){
 	$geminiRscr="/scratch/gd7/resources/kccg-gemini";
 	$geminiBin="/scratch/gd7/resources/gemini/bin";
 
-	$refChrPf = ''
+	$refChrPf = '';
 
 	if ($isHg19)
 	{
-		$chrPf='chr';ghnfgh
+		$chrPf='chr';
 
 		
 	}else
@@ -225,7 +225,7 @@ if ($S_ref_data_v eq "b37"){
 	# $geminiBin="/scratch/gd7/resources/gemini/bin";
 
 	$chrPf='chr';
-	$refChrPf = 'chr'
+	$refChrPf = 'chr';
 	$wig_line_count=3220490784;
 }
 
