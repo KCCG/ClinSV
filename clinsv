@@ -184,6 +184,7 @@ if ($S_ref_data_v eq "b37"){
 	if ($isHg19)
 	{
 		$chrPf='chr';
+		$refChrPf = 'chr';
 
 	}else{
 		$chrPf='';
@@ -225,7 +226,9 @@ if ($S_ref_data_v eq "b37"){
 	# $geminiRscr="/scratch/gd7/resources/kccg-gemini";
 	# $geminiBin="/scratch/gd7/resources/gemini/bin";
 
+	
 	$chrPf='chr';
+	# used in ValidReportPrep.pl script as input
 	$refChrPf = 'chr';
 	$wig_line_count=3220490784;
 }

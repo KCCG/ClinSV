@@ -75,7 +75,8 @@ while(<IN1>){ chomp; @_=split("\t",$_); $chr2len{$_[0]}=$_[1]; }close(IN1);
 		undef @tmpAIns;
 		make_path($projectDir."/SVs/qc/insertSizes") if (! -d $projectDir."/SVs/qc/insertSizes");
 		open(OUTINS, ">$projectDir/SVs/qc/insertSizes/$cSample.txt") || die "can not read bam file";
-	
+
+		#$chrPf here refers to input bam chromsome naming convention
 		open(INB, "samtools view -T $inRef $cBam ".$chrPf."1:20000001-30000000 | ") || die "can not read bam file"; 
 		# ST-E00141:48:H0ATBALXX:1:1220:8105:62471        163     1       19999858        60      150M    =       20000040        332     TCCAGAGTCTGTCTTGT  <AFFFJJF  NM:i:1  MD:Z:149A0      AS:i:149        XS:i:70 MC:Z:150M       MQ:i:60 RG:Z:H0ATBALXX_1
 		while(<INB>){
@@ -98,13 +99,12 @@ while(<IN1>){ chomp; @_=split("\t",$_); $chr2len{$_[0]}=$_[1]; }close(IN1);
 		close(INB);
 	
 		close(OUTINS);
-	
 		print STDERR " of $countAllPairs read pairs in region ".$chrPf."1:20000001-30000000\n";
 		$PcNotPropPair=round($countPcNotPropPair/$countAllPairs*100,3);
 		$PcMapDiffChr=round($countDiffrChr/$countAllPairs*100,3);
 		print STDERR " % not proper pair: $PcNotPropPair\n";
 		print STDERR " % mapping different Chr: $PcMapDiffChr\n";
-	
+
 		$stat{$cSample}{testRegion}="".$chrPf."1:20000001-30000000";
 		$stat{$cSample}{PcNotPropPair}=$PcNotPropPair;
 		$stat{$cSample}{PcMapDiffChr}=$PcMapDiffChr;
@@ -117,6 +117,7 @@ while(<IN1>){ chomp; @_=split("\t",$_); $chr2len{$_[0]}=$_[1]; }close(IN1);
 		####### stdev
 	
 		undef @tmpArr;
+		#This  refers to ref genome
 		open(INB, "samtools depth --reference $inRef -r ".$chrPf."1:20000001-30000000 $cBam | ") || die "can not read bam file"; 
 		# ST-E00141:48:H0ATBALXX:1:1220:8105:62471        163     1       19999858        60      150M    =       20000040        332     TCCAGAGTCTGTCTTGT  <AFFFJJF  NM:i:1  MD:Z:149A0      AS:i:149        XS:i:70 MC:Z:150M       MQ:i:60 RG:Z:H0ATBALXX_1
 		while(<INB>){
