@@ -181,6 +181,7 @@ ENV clinSV_repo_path="ClinSV"
 #Add clinsv + scripts from repo
 RUN cd $clinsv_path/ && \
     mkdir perlib/ && \
+    pwd && \
     mkdir perlib/My && \
    
     mkdir clinSV && \
@@ -193,11 +194,10 @@ RUN cd $clinsv_path/ && \
     git pull && \
     cd .. && \
 
+
     mv $clinSV_repo_path/clinsv bin/ && \
     mv $clinSV_repo_path/sort_bgzip bin/ &&\
-    pwd &&\
     mv $clinSV_repo_path/perl_modules/*  perlib/My && \
-    pwd &&\
     mv $clinSV_repo_path/scripts/* clinSV/scripts/ &&\
     rm -rf $clinSV_repo_path/
 
