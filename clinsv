@@ -412,7 +412,7 @@ sub lumpy {
 		open(OUT,">$$cJ{rShStem}.sh");
 		print OUT "$r_head";
 
-		print OUT "perl $S_SV_scriptDir/filterConcordantPairs.pl $alignOut/$cSample.bam 100:100 ".$chrPf.":1000001-5000000 $refFasta | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.discordants -o $r_OutDir/$cSample.discordants.bam -  &\n";
+		print OUT "perl $S_SV_scriptDir/filterConcordantPairs.pl $alignOut/$cSample.bam 100:100 ".$chrPf."1:1000001-5000000 $refFasta | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.discordants -o $r_OutDir/$cSample.discordants.bam -  &\n";
 		print OUT "samtools view -T $refFasta -h $alignOut/$cSample.bam  | python $S_lumpy_scripts/extractSplitReads_BwaMem -i stdin | awk '\$3 != \"hs37d5\" && \$3 != \"NC_007605\"' | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.splitters -o $r_OutDir/$cSample.splitters.bam - &\n";
 		print OUT "wait\n"; 
 		
