@@ -182,9 +182,9 @@ ENV clinSV_repo_path="ClinSV"
 RUN cd $clinsv_path/ && \
     mkdir perlib/ && \
     mkdir perlib/My && \
-    pwd && \
    
     mkdir clinSV && \
+    pwd && \
     mkdir clinSV/scripts && \
     git clone https://github.com/KCCG/ClinSV.git && \
     

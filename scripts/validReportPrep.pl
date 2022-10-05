@@ -236,14 +236,6 @@ while(<IN1>){ chomp; @_=split("\t",$_); $chr2len{$_[0]}=$_[1]; }close(IN1);
 		$qBins=ceil($chr2len{$cChr}/1000000);
 		undef @aCov; undef(@covVals);
 
-		eval {
-				my $test = $bwObj{$cSample}{"q0"}->get_stats($cChr, 0, $chr2len{$cChr}, $qBins, 'mean');
-		} or do {
-				print STDERR "$@\n";
-				print STDERR "trying different chromosome naming convention: $cChrPre\n";
-				$cChr = $cChrPre;
-		};
-
 		$cDivCov=$meanCov{$cChr}{$cSample};
 		$cChr2=$cChr;
 		
@@ -261,9 +253,15 @@ while(<IN1>){ chomp; @_=split("\t",$_); $chr2len{$_[0]}=$_[1]; }close(IN1);
 				$cChr2=$cChr."0"; # XX or X or Y or X0 or Yo
 			}
 			
-		}
+		};
 		
-		my $aCov_stat = $bwObj{$cSample}{"q0"}->get_stats($cChr, 0, $chr2len{$cChr}, $qBins, 'mean');
+		eval {
+				my $aCov_stat = $bwObj{$cSample}{"q0"}->get_stats($cChr, 0, $chr2len{$cChr}, $qBins, 'mean');
+		} or do {
+				print STDERR "$@\n";
+				print STDERR "trying different chromosome naming convention: $cChrPre\n";
+				my $aCov_stat = $bwObj{$cSample}{"q0"}->get_stats($cChrPre, 0, $chr2len{$cChr}, $qBins, 'mean');
+		};
 
 		for ($i=0; $i<=$#$aCov_stat;$i++){		
 		
