@@ -18,7 +18,7 @@ export PATH=$clinsv_path/bin:$PATH
 
 1) pre-publication access
 ```
-wget https://nci.space/clinsv/ClinSV_scripts_only_v0.9.tar.gz
+wget https://nci.space/clinsv/clinsv_b37/ClinSV_scripts_only_v0.9.tar.gz
 tar zxf ClinSV_scripts_only_v0.9.tar.gz
 ```
 2) post-publication access
