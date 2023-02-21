@@ -24,8 +24,8 @@ For 500 WGS [samples](misc/control_sample_IDs.txt) of the Medical Genome Referen
 
 Please refer to the [manuscript](https://doi.org/10.1186/s13073-021-00841-x) for further details.
 
-# ClinSV version 1.0
-This repository contains the source code and Docker files required to run ClinSV version 1.0. Version 1.0 only supports GRCh38 as the reference genome used. Please refer to release v0.9 to use with ClinSV with reference genome GRCh37 decoy (hs37d5)
+# ClinSV version 1.0.1
+This repository contains the source code and Docker files required to run ClinSV version 1.0.1 Version 1.0.1 only supports GRCh38 as the reference genome. Please refer to release v0.9 to use ClinSV with reference genome GRCh37 decoy (hs37d5). A future version 1.1 will allow any reference genome to be used.
 
 ## Download
 
@@ -42,8 +42,13 @@ Download a sample bam to test ClinSV:
 wget https://nci.space/clinsv/clinsv_b38/NA12878_b38.bam
 wget https://nci.space/clinsv/clinsv_b38/NA12878_b38.bam.bai
 ```
+or here is a smaller BAM file
+```
+wget https://nci.space/clinsv/clinsv_b38/NA12878.grch38.subsampled.bam
+wget https://nci.space/clinsv/clinsv_b38/NA12878.grch38.subsampled.bam.bai
+```
 
-The ClinSV software can be downloaded precompiled, as a Docker image. Please refer to the section below.
+The easiest way to run ClinSV is via Docker. If you really want to compile from source, then see [INSTALL_b38.md](INSTALL_b38.md).
 
 ## File structure to run Docker image
 
@@ -62,15 +67,13 @@ Current working directory
 └───test_run
       | this is where clinsv generates all its output
 
-
 ```
 **Its important to note that the provided b38 ref data (after extracting) needs to be put within a parent folder of the same name as described above.**
+
 ## Run ClinSV
 
-
-### Using Docker
 ```
-docker pull mrbradley2/clinsv:v1.0
+docker pull mrbradley2/clinsv:v1.0.1
 
 refdata_path=$PWD/clinsv/refdata-b38
 input_path=$PWD
@@ -79,16 +82,13 @@ project_folder=$PWD/test_run
 docker run -v $refdata_path:/app/ref-data \
 -v $project_folder:/app/project_folder  \
 -v $input_path:/app/input  \
---entrypoint "perl" mrbradley2/clinsv:v1.0 /app/clinsv/bin/clinsv \
+--entrypoint "perl" mrbradley2/clinsv:v1.0.1 /app/clinsv/bin/clinsv \
 -r all \
 -p /app/project_folder/ \
 -i "/app/input/*.bam" \
--ref /app/ref-data/refdata-b38 
+-ref /app/ref-data/refdata-b38 \
+-w
 ```
-
-### Compile dependencies from source
-see [INSTALL_b38.md](INSTALL_b38.md)
-
 
 ## ClinSV options
 
@@ -107,80 +107,17 @@ see [INSTALL_b38.md](INSTALL_b38.md)
    project folder, E.g. a family trio and a set of single proband individuals.
 -l Lumpy batch size. Number of sampels to be joint-called [15]. 
 -ref Path to reference data dir [./refdata-b37].
+-w short for 'web': In the IGV session file, stream the annotation tracks from a server. Convenient if you
+   prefer to run ClinSV on an HPC (where you have a copy of the annotation bundle) and view results on your desktop
 -eval Create the NA12878 validation report section [no].
 -h print this help
-
 ```
-
 
 ### Advanced options
 When providing a [pedigree file](misc/sampleInfo.ped), the output will contain additional columns showing e.g. how often a variant was observed among affected and unaffected individuals. The pedigree file has to be named "sampleInfo.ped" and it has to be placed into the project folder.
 
 To mark variants affecting user defined candidate genes, a [gene list](misc/testGene.ids) list has to be placed into the project folder and named "testGene.ids". Gene names have to be as in ENSEMBL GRCh37.
 
-# ClinSV version 0.9
-Install and usage instructions for ClinSV v0.9
-## Download
-
-Download human genome reference data GRCh37 decoy (hs37d5):
-
-```
-wget https://nci.space/clinsv/refdata-b37_v0.9.tar
-# check md5sum: 921ecb9b9649563a16e3a47f25954951
-tar xf refdata-b37_v0.9.tar
-refdata_path=$PWD/clinsv/refdata-b37
-```
-
-Download a sample bam to test ClinSV:
-
-```
-wget https://nci.space/clinsv/NA12878_v0.9.bam
-wget https://nci.space/clinsv/NA12878_v0.9.bam.bai
-input_path=$PWD
-```
-
-The ClinSV software can be downloaded precompiled, as a Singularity image or through Docker. Please refer to the section below.
-
-
-## Run ClinSV
-
-### Using Singularity
-```
-wget https://nci.space/clinsv/clinsv.sif 
-singularity run clinsv.sif \
-  -i "$input_path/*.bam" \
-  -ref $refdata_path \
-  -p $PWD/project_folder
-```
-
-### Using Docker
-```
-docker pull kccg/clinsv
-project_folder=$PWD/test_run
-docker run \
--v $refdata_path:/app/ref-data \
--v $project_folder:/app/project_folder \
--v $input_path:/app/input \
-  kccg/clinsv -r all \
--i "/app/input/*.bam" \
--ref $refdata_path:/app/ref-data \
--p $project_folder:/app/project_folder
-```
-
-### Linux Native
-
-Download precompiled ClinSV bundle for CentOS 6.8 x86_64
-
-```
-wget https://nci.space/clinsv/ClinSV_x86_64_v0.9.tar.gz
-tar zxf ClinSV_x86_64_v0.9.tar.gz
-clinsv_path=$PWD/clinsv
-export PATH=$clinsv_path/bin:$PATH
-clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
-```
-
-### Compile dependencies from source
-see [INSTALL.md](INSTALL.md)
 
 ## Hardware requirements
 * based on 30-40x WGS (80GB BAM file): 16 CPUs, 60GB RAM, 200 GB storage
@@ -218,11 +155,28 @@ and the manuscript (see section citation)
 
 > igv/sample.xml
 
-This IGV genome browser session file contains paths to evidence data files necessary for manual inspection of variants.
+This IGV genome browser session file contains paths to supporting data files necessary for manual inspection of variants. There are tracks from static annotation files and those from your sample(s) of interest.
 
-If ClinSV was executed on a remote computer, it is recommended to mount the results folder on your desktop computer preserving the path.
+If ClinSV was executed on a remote computer, like an HPC, then the file paths might not work on your Desktop. The default option of `-p /app/project_folder/` creates resource paths like this:
 
-When the IGV application is open, the hyperlinks in sample.RARE\_PASS\_GENE.xlsx facilitate to open session files and to navigate to variants, if pasted into a spreadsheet program.
+  <Resource path="/app/project_folder/test_run/igv/alignments/Sample/bw/Sample.q0.bw"/>
+
+You have several options to improve this:
+1: The `-p` parameter accepts two arguments, the first is the desired path on your desktop/localhost, the second is the path on the execution host where the job needs to run. For example `-p /path/on/desktop:/app/project_folder/`. In this case the session.xml will have
+
+  <Resource path="/path/on/desktop/test_run/igv/alignments/Sample/bw/Sample.q0.bw"/>
+
+Once you copy the results to `/path/on/desktop`, the session file will now work.
+2: paths can be relative to the igv xml file, so `-p ..:/app/project_folder/` will create:
+  <Resource path="../alignments/Sample/bw/Sample.q0.bw"/>
+
+3: manually replace the paths in the XML file with a perl regex, eg `perl -pi -e 's|/app/project_folder/|/path/on/desktop/|g' $xml`
+
+4: mount the remote folder on your desktop (eg sshfs) using the same folder structure
+
+Consider specifying the `-w` option to allow the annotation tracks to be streamed in from our server. This is convenient if you don't want to have the full annotation bundle on your desktop.
+
+When the IGV application is open, the hyperlinks within the `sample.RARE\_PASS\_GENE.xlsx` will open session files and to navigate to variants.
 
 For more information please see the publication.
 
