@@ -14,6 +14,7 @@ use FindBin qw($RealBin);
 use lib "$RealBin/../perlib";
 
 
+$clinSvVersion="1.0.1 (2023-02-21)";
 
 ########################################
 ######################################## default settings
@@ -43,9 +44,12 @@ GetOptions (
 		    "l=i"  => \$lumpyBatchSize,
 		    "eval"  => \$eval,
 		    "w"  => \$igvweb,
+		    "v"  => \$version,
 )  or die("Error in command line arguments\n");
 
 if($help){  printHelp(); exit; }
+if($version){  print "$clinSvVersion\n"; exit; }
+
 ## check projectDir
 
 @bamInArr=glob("$inputAlignDir");
@@ -1394,7 +1398,7 @@ sub printHelp{
 
 print STDERR "
 ### This script runs ClinSV on a single node ###
-Version: 1.0.1 (2023-02-21)
+Version: $clinSvVersion
 Author: Andre E Minoche, James Bradley, Mark J Cowley
 
 usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref_data [options]
