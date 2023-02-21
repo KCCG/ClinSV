@@ -99,6 +99,7 @@ print  "# genome reference: $S_ref_data\n";
 print  "# run steps: $runString\n";
 print  "# number input bams: ".scalar(@bamInArr)."\n";
 print  "# qc eval\n" if $eval;
+print  "# use web IGV links to annotation tracks\n" if $igvweb;
 print  "\n";
 
 
@@ -113,7 +114,7 @@ $S_SV_scriptDir="$S_clinsv_dir/clinSV/scripts";
 # python
 #$S_python="module load python/2.7.3\nsource /path/virtenv.a1/bin/activate\n"; # if not already in path
 
-# ref-data ressource
+# ref-data resource
 $S_SV_controlSRPE="$S_ref_data/control/brkp";
 $S_SV_controlStats="$S_ref_data/control/qc";
 
@@ -139,7 +140,6 @@ $S_gnomAD_SV="$S_ref_data/annotation/gnomad_v2_sv.sites.reformat.bed.gz"; # to c
 
 $S_HPO_gene2label="$S_ref_data/annotation/Hs-gene-labels.txt";
 $S_HPO_gene2hpo="$S_ref_data/annotation/Hs-gene-to-phenotype.txt";
-
 
 $S_default_track_path="$S_ref_data/tracks";
 
@@ -316,16 +316,6 @@ sub bigwig {
 		close(OUT);
 		
 	}
-		
-
-
-
-
-			
-
-
-
-
 	
 	foreach $cSample (sort keys %fastq){
 		foreach $cT (("q0","q20","mq")){ # create bw of s1 for MQ>=0 and MQ>=20	
@@ -655,10 +645,8 @@ sub annotate {
 		
 		
 		print OUT "ln -fs ./SV-CNV$fileExt.$cExt.vcf $r_TmpDir/SV-CNV$fileExt.annot.vcf\n\n";
-
-			
-	
-# 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		#print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		
 		close(OUT);
 		
 	}
@@ -666,8 +654,7 @@ sub annotate {
 }
 
 sub prioritize {
-    
-  	print  "# prioritize\n\n";
+	print  "# prioritize\n\n";
 	
 	$r_JobType="prioritize";
 	$r_JobSubType="main"; #! edit here
@@ -733,12 +720,11 @@ sub prioritize {
 }
 
 sub qc {
-    
-  	print  "# qc\n\n";
+
+	print  "# qc\n\n";
 	
 	$r_JobType="qc";
 	$r_JobSubType="main"; #! edit here
-	
 	
 	@SampleOrder=sort keys %fastq;		
 	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
