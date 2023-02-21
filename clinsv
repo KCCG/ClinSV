@@ -824,10 +824,12 @@ sub igv {
 	
 	if (length($projectDir_host)<1){
 		$session_target_path="$projectDir";
-		$S_default_track_path_xml="$S_ref_data/tracks";
-		
 	}else{
 		$session_target_path="$projectDir_host";
+	}
+	if (length($S_ref_data_host)<1){
+		$S_default_track_path_xml="$S_ref_data/tracks";
+	}else{
 		$S_default_track_path_xml="$S_ref_data_host/tracks";
 	}
 	
@@ -836,8 +838,6 @@ sub igv {
 	}
 
 	make_path($S_igv_dir) if (! -d $S_igv_dir);	
-	
-	$r_OutDir="$projectDir/alignments/$cSample/bw";
 	
 	# create the IGV session	
 	foreach $cSample (sort keys %fastq){
@@ -937,11 +937,12 @@ sub igv {
 		my $outString=igvSession(\%IGVS,\%IGVOpt,$session_target_path,$S_default_track_path_xml); print OUT $$outString;
 		close(OUT);	
 		
-		if (length($projectDir_host)<1){
-			print "xml file: $S_igv_dir/$cSample.xml\n";
-		}else{
-			print "xml file: $projectDir_host/igv/$cSample.xml\n";
-		}
+		#if (length($projectDir_host)<1){
+		#	print "xml file: $S_igv_dir/$cSample.xml\n";
+		#}else{
+		#	print "xml file: $projectDir_host/igv/$cSample.xml\n";
+		#}
+		print "xml file: $S_igv_dir/$cSample.xml\n";
 	}
 }
 
