@@ -32,20 +32,20 @@ This repository contains the source code and Docker files required to run ClinSV
 Download human genome reference data GRCh38 (37GB):
 
 ```
-wget https://nci.space/clinsv/clinsv_b38/refdata-b38_v1.0.tar
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/refdata-b38_v1.0.tar
 tar xf refdata-b38_v1.0.tar
 ```
 
 Download a sample bam to test ClinSV (71GB):
 
 ```
-wget https://nci.space/clinsv/clinsv_b38/NA12878_b38.bam
-wget https://nci.space/clinsv/clinsv_b38/NA12878_b38.bam.bai
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam.bai
 ```
 or here is a smaller BAM file (4.7GB)
 ```
-wget https://nci.space/clinsv/clinsv_b38/NA12878.grch38.subsampled.bam
-wget https://nci.space/clinsv/clinsv_b38/NA12878.grch38.subsampled.bam.bai
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878.grch38.subsampled.bam
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878.grch38.subsampled.bam.bai
 ```
 
 The easiest way to run ClinSV is via Docker. If you really want to compile from source, then see [INSTALL_b38.md](INSTALL_b38.md).
