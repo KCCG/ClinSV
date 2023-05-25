@@ -32,15 +32,15 @@ This repository contains the source code and Docker files required to run ClinSV
 Download human genome reference data GRCh38:
 
 ```
-wget https://nci.space/clinsv/clinsv_b38/refdata-b38_v1.0.tar
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/refdata-b38_v1.0.tar
 tar xf refdata-b38_v1.0.tar
 ```
 
 Download a sample bam to test ClinSV:
 
 ```
-wget https://nci.space/clinsv/clinsv_b38/NA12878_b38.bam
-wget https://nci.space/clinsv/clinsv_b38/NA12878_b38.bam.bai
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam.bai
 ```
 
 The ClinSV software can be downloaded precompiled, as a Docker image. Please refer to the section below.
@@ -125,7 +125,7 @@ Install and usage instructions for ClinSV v0.9
 Download human genome reference data GRCh37 decoy (hs37d5):
 
 ```
-wget https://nci.space/clinsv/refdata-b37_v0.9.tar
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/refdata-b37_v0.9.tar
 # check md5sum: 921ecb9b9649563a16e3a47f25954951
 tar xf refdata-b37_v0.9.tar
 refdata_path=$PWD/clinsv/refdata-b37
@@ -134,8 +134,8 @@ refdata_path=$PWD/clinsv/refdata-b37
 Download a sample bam to test ClinSV:
 
 ```
-wget https://nci.space/clinsv/NA12878_v0.9.bam
-wget https://nci.space/clinsv/NA12878_v0.9.bam.bai
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/NA12878_v0.9.bam
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/NA12878_v0.9.bam.bai
 input_path=$PWD
 ```
 
@@ -146,7 +146,7 @@ The ClinSV software can be downloaded precompiled, as a Singularity image or thr
 
 ### Using Singularity
 ```
-wget https://nci.space/clinsv/clinsv.sif 
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/clinsv.sif
 singularity run clinsv.sif \
   -i "$input_path/*.bam" \
   -ref $refdata_path \
@@ -172,7 +172,7 @@ docker run \
 Download precompiled ClinSV bundle for CentOS 6.8 x86_64
 
 ```
-wget https://nci.space/clinsv/ClinSV_x86_64_v0.9.tar.gz
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/ClinSV_x86_64_v0.9.tar.gz
 tar zxf ClinSV_x86_64_v0.9.tar.gz
 clinsv_path=$PWD/clinsv
 export PATH=$clinsv_path/bin:$PATH
