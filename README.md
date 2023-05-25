@@ -39,8 +39,8 @@ tar xf refdata-b38_v1.0.tar
 Download a sample bam to test ClinSV:
 
 ```
-wget https://nci.space/_projects/clinsv_b38/NA12878_b38.bam
-wget  https://s3.ccia.org.au/clinsv/clinsv_b38/NA12878_b38.bam.bai
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam
+wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam.bai
 ```
 
 The ClinSV software can be downloaded precompiled, as a Docker image. Please refer to the section below.
@@ -172,7 +172,7 @@ docker run \
 Download precompiled ClinSV bundle for CentOS 6.8 x86_64
 
 ```
-wget https://nci.space/clinsv/ClinSV_x86_64_v0.9.tar.gz
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/ClinSV_x86_64_v0.9.tar.gz
 tar zxf ClinSV_x86_64_v0.9.tar.gz
 clinsv_path=$PWD/clinsv
 export PATH=$clinsv_path/bin:$PATH
