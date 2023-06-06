@@ -14,10 +14,12 @@ use FindBin qw($RealBin);
 use lib "$RealBin/../perlib";
 
 
-
 ########################################
 ######################################## default settings
 ########################################
+
+$clinSvVersion="1.0.1 (2023-02-21)";
+
 $runString="all";
 $inputAlignDir="./input/*.bam";
 $lumpyBatchSize=5;
@@ -30,8 +32,9 @@ $S_ref_data="$S_clinsv_dir/refdata-b37";
 $projectDir_host='';
 $S_ref_data_host='';
 
-GetOptions ("p=s" => \$projectDir,
-			"r=s"  => \$runString,
+GetOptions (
+		    "p=s"  => \$projectDir,
+		    "r=s"  => \$runString,
 		    "i=s"  => \$inputAlignDir,
 		    "s=s"  => \$sampleInfoFile,
 		    "n=s"  => \$nameStemJoint,
@@ -39,11 +42,15 @@ GetOptions ("p=s" => \$projectDir,
 		    "a"  => \$S_AskBeforeSub,
 		    "ref=s"  => \$S_ref_data,
 		    "h"  => \$help,
-		    "l=i" => \$lumpyBatchSize,
+		    "l=i"  => \$lumpyBatchSize,
 		    "eval"  => \$eval,
+		    "w"  => \$igvweb,
+		    "v"  => \$version,
 )  or die("Error in command line arguments\n");
 
 if($help){  printHelp(); exit; }
+if($version){  print "$clinSvVersion\n"; exit; }
+
 ## check projectDir
 
 @bamInArr=glob("$inputAlignDir");
@@ -97,6 +104,7 @@ print  "# genome reference: $S_ref_data\n";
 print  "# run steps: $runString\n";
 print  "# number input bams: ".scalar(@bamInArr)."\n";
 print  "# qc eval\n" if $eval;
+print  "# use web IGV links to annotation tracks\n" if $igvweb;
 print  "\n";
 
 
@@ -111,7 +119,7 @@ $S_SV_scriptDir="$S_clinsv_dir/clinSV/scripts";
 # python
 #$S_python="module load python/2.7.3\nsource /path/virtenv.a1/bin/activate\n"; # if not already in path
 
-# ref-data ressource
+# ref-data resource
 $S_SV_controlSRPE="$S_ref_data/control/brkp";
 $S_SV_controlStats="$S_ref_data/control/qc";
 
@@ -138,7 +146,6 @@ $S_gnomAD_SV="$S_ref_data/annotation/gnomad_v2_sv.sites.reformat.bed.gz"; # to c
 $S_HPO_gene2label="$S_ref_data/annotation/Hs-gene-labels.txt";
 $S_HPO_gene2hpo="$S_ref_data/annotation/Hs-gene-to-phenotype.txt";
 
-
 $S_default_track_path="$S_ref_data/tracks";
 
 
@@ -159,31 +166,23 @@ if ($S_ref_data_v eq "b37"){
 	
 	$S_SegDup="$S_default_track_path/GRCh37GenomicSuperDup.bed.gz";
 
-
-
 	$S_Phen="$S_ref_data/annotation/ensemble_GRCh37_2_phen.txt";
 
 	$S_gnomAD_SV="$S_ref_data/annotation/gnomad_v2_sv.sites.reformat.bed.gz"; # to create see create-KDB-SV.pl in AZ_MA-comparisons.txt
 
-	# ref-data ressource
+	# ref-data resource
 	
 	# GATK bundle
-	#$S_GATK_bundle="/scratch/gd7/resources/gatk-resource-bundle/2.8/b37";
-	$S_GATK_bundle="/g/data/gd7/resources/gatk-resource-bundle/2.8/b37";
-	$refFasta_bwa="$S_GATK_bundle/human_g1k_v37_decoy.fasta";
+	#$S_GATK_bundle="/g/data/gd7/resources/gatk-resource-bundle/2.8/b37";
+	#$refFasta_bwa="$S_GATK_bundle/human_g1k_v37_decoy.fasta";
 	$refFasta="$S_ref_data/genome/human_g1k_v37_decoy.fasta";
 	
-	# Gemini
-	$geminiRscr="/scratch/gd7/resources/kccg-gemini";
-	$geminiBin="/scratch/gd7/resources/gemini/bin";
-
 	$chrPf='';
 	$wig_line_count=$wig_line_count;
 	
 }elsif ($S_ref_data_v eq "b38"){
 	
 	$S_lumpy_excludeBed="$S_ref_data/exclude.cnvnator_100bp.GRCh38.20170403.bed";
-# 	$S_lumpy_excludeBed="$S_ref_data/b38_FR05812606_100x_plus_cnvnator_100bp.GRCh38.20170403.exclude.bed";
 	$S_SV_goldStandard="$S_ref_data/control/qc/GIAB_SV_DEL_gold_noNonCnvGr500_vPB_lift_to_b38.bed";
 	
 	$S_SV_control_number_samples=500;
@@ -198,21 +197,16 @@ if ($S_ref_data_v eq "b37"){
 	
 	$S_SegDup="$S_default_track_path/GRCh38GenomicSuperDup.bed.gz";
 
-	
-
-
+  # this is a file that maps ENSG ID's to OMIM entries (no coordinates), thus can get away with using it in hg38.
+  # TODO: update this to use the same ENSG ID's as $S_genes
 	$S_Phen="$S_ref_data/annotation/ensemble_GRCh37_2_phen.txt";
 
-	# ref-data ressource
+	# ref-data resource
 
 	# GATK bundle
-	$S_GATK_bundle="/g/data/gd7/resources/gatk-resource-bundle/hg38/v0";
-	$refFasta_bwa="$S_GATK_bundle/Homo_sapiens_assembly38.fasta";
+	#$S_GATK_bundle="/g/data/gd7/resources/gatk-resource-bundle/hg38/v0";
+	#$refFasta_bwa="$S_GATK_bundle/Homo_sapiens_assembly38.fasta";
 	$refFasta="$S_ref_data/genome/Homo_sapiens_assembly38.fasta";
-
-	# Gemini
-	# $geminiRscr="/scratch/gd7/resources/kccg-gemini";
-	# $geminiBin="/scratch/gd7/resources/gemini/bin";
 
 	$chrPf='chr';
 	$wig_line_count=3220490784;
@@ -327,16 +321,6 @@ sub bigwig {
 		close(OUT);
 		
 	}
-		
-
-
-
-
-			
-
-
-
-
 	
 	foreach $cSample (sort keys %fastq){
 		foreach $cT (("q0","q20","mq")){ # create bw of s1 for MQ>=0 and MQ>=20	
@@ -665,11 +649,9 @@ sub annotate {
 		push @extensions, 'qsCNV'; $cExt=join(".",@extensions);
 		
 		
-		print OUT "ln -s $r_TmpDir/SV-CNV$fileExt.$cExt.vcf $r_TmpDir/SV-CNV$fileExt.annot.vcf\n\n";
-
-			
-	
-# 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		print OUT "ln -fs ./SV-CNV$fileExt.$cExt.vcf $r_TmpDir/SV-CNV$fileExt.annot.vcf\n\n";
+		#print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh and @SampleOrder<$lumpyBatchSize;
+		
 		close(OUT);
 		
 	}
@@ -677,8 +659,7 @@ sub annotate {
 }
 
 sub prioritize {
-    
-  	print  "# prioritize\n\n";
+	print  "# prioritize\n\n";
 	
 	$r_JobType="prioritize";
 	$r_JobSubType="main"; #! edit here
@@ -744,12 +725,11 @@ sub prioritize {
 }
 
 sub qc {
-    
-  	print  "# qc\n\n";
+
+	print  "# qc\n\n";
 	
 	$r_JobType="qc";
 	$r_JobSubType="main"; #! edit here
-	
 	
 	@SampleOrder=sort keys %fastq;		
 	for($i=0; $i<=$#SampleOrder; $i+=$lumpyBatchSize){
@@ -844,24 +824,25 @@ sub qc {
 
 sub igv {
   
-  	 
 	print  "# writing igv session files...\n\n";
 	$S_igv_dir="$projectDir/igv";
 	
 	if (length($projectDir_host)<1){
 		$session_target_path="$projectDir";
-		$S_default_track_path_xml="$S_ref_data/tracks";
-		
 	}else{
 		$session_target_path="$projectDir_host";
+	}
+	if (length($S_ref_data_host)<1){
+		$S_default_track_path_xml="$S_ref_data/tracks";
+	}else{
 		$S_default_track_path_xml="$S_ref_data_host/tracks";
 	}
 	
-   	make_path($S_igv_dir) if (! -d $S_igv_dir);	
+	if ($igvweb) {
+		$S_default_track_path_xml="https://nci.space/clinsv/clinsv_$S_ref_data_v/refdata/tracks";
+	}
 
-	
-	$r_OutDir="$projectDir/alignments/$cSample/bw";
-
+	make_path($S_igv_dir) if (! -d $S_igv_dir);	
 	
 	# create the IGV session	
 	foreach $cSample (sort keys %fastq){
@@ -895,7 +876,9 @@ sub igv {
 		
 		
 		# Sample segdups
-		$IGVS{1}{6}{path}="$S_default_track_path_xml/GRCh37GenomicSuperDup.bed.gz";
+		#$IGVS{1}{6}{path}="$S_default_track_path_xml/GRCh37GenomicSuperDup.bed.gz";
+		$IGVS{1}{6}{path} = $S_SegDup;
+		$IGVS{1}{6}{path} =~ s/$S_default_track_path/$S_default_track_path_xml/;
 		$IGVS{1}{6}{name}="Segmental Duplications";
 			
 		##### SV track #### panel 2
@@ -938,32 +921,34 @@ sub igv {
 		
 		##### KDB #### panel 5
 		$IGVS{5}{1}{path}="$S_default_track_path_xml/MGRB-SV.igv.bed.gz";
-		$IGVS{5}{1}{name}="KCCG DB";
+		$IGVS{5}{1}{name}="MGRB";
 		
 		##### DGV #### panel 6
-		$IGVS{6}{1}{path}="$S_default_track_path_xml/GRCh37_hg19_variants_2015-07-23.igv.bed.gz";
+		#$IGVS{6}{1}{path}="$S_default_track_path_xml/GRCh37_hg19_variants_2015-07-23.igv.bed.gz";
+		$IGVS{6}{1}{path}=$S_DGV_igv;
+		$IGVS{6}{1}{path} =~ s/$S_default_track_path/$S_default_track_path_xml/;
 		$IGVS{6}{1}{name}="DGV";
 		$IGVS{6}{1}{displayMode}="EXPANDED";
 		
 
-		$IGVS{6}{2}{path}="$S_default_track_path_xml/DGV_1kG_2015-07-18.igv.bed.gz";
+		#$IGVS{6}{2}{path}="$S_default_track_path_xml/DGV_1kG_2015-07-18.igv.bed.gz";
+		$IGVS{6}{2}{path}=$S_1kG_igv;
+		$IGVS{6}{2}{path} =~ s/$S_default_track_path/$S_default_track_path_xml/;
 		$IGVS{6}{2}{name}="DGV 1kG";
 		$IGVS{6}{2}{displayMode}="EXPANDED";
 
-		
 		open(OUT,">$S_igv_dir/$cSample.xml") || die "can not write to $S_igv_dir/$cSample.xml";
 		$IGVOpt{dividerFractions}="0.3,0.4,0.5,0.6,0.7,0.8";
-		my $outString=igvSession(\%IGVS,\%IGVOpt,$session_target_path); print OUT $$outString;
+		my $outString=igvSession(\%IGVS,\%IGVOpt,$session_target_path,$S_default_track_path_xml); print OUT $$outString;
 		close(OUT);	
 		
-		if (length($projectDir_host)<1){
-			print "xml file: $S_igv_dir/$cSample.xml\n";
-		}else{
-			print "xml file: $projectDir_host/igv/$cSample.xml\n";
-		}
+		#if (length($projectDir_host)<1){
+		#	print "xml file: $S_igv_dir/$cSample.xml\n";
+		#}else{
+		#	print "xml file: $projectDir_host/igv/$cSample.xml\n";
+		#}
+		print "xml file: $S_igv_dir/$cSample.xml\n";
 	}
-
-	
 }
 
 
@@ -972,14 +957,17 @@ sub igv {
 sub igvSession{ 
 	# %IGVS igv session hash $IGVS{panelNumber}{TrackNumber}{option}=""; 
 	
-	my($cIGVS,$cIGVOpt,$session_target_path)=@_;
+	my($cIGVS,$cIGVOpt,$session_target_path,$session_track_path)=@_;
 	my %IGVS=%{$cIGVS};
 	my %IGVOpt=%{$cIGVOpt};
 	
 	my %defaultTrack;
 	
-	
-	my $ENSEMBLEgenes=(length($projectDir_host)>0) ? "$S_ref_data_host/annotation/Homo_sapiens.GRCh37.75.gff.gz":"$S_ref_data/annotation/Homo_sapiens.GRCh37.75.gff.gz";
+	#	$S_genes="$S_ref_data/annotation/Homo_sapiens.GRCh37.75.gff.gz";
+	#my $ENSEMBLEgenes=(length($projectDir_host)>0) ? "$S_ref_data_host/annotation/Homo_sapiens.GRCh37.75.gff.gz":"$S_ref_data/annotation/Homo_sapiens.GRCh37.75.gff.gz";
+	my $ENSEMBLEgenes=$S_genes;
+	$ENSEMBLEgenes =~ s/$S_ref_data/$session_track_path/;
+	$ENSEMBLEgenes =~ s|tracks/||;
 	
 	$defaultTrack{"org.broad.igv.track.DataSourceTrack"}={"altColor"=>"255,0,0","autoScale"=>"true", "clazz"=>"org.broad.igv.track.DataSourceTrack", "color"=>"102,102,102", 
 	"displayMode"=>"COLLAPSED", "featureVisibilityWindow"=>"-1", "fontSize"=>"10", "normalize"=>"false", "renderer"=>"BAR_CHART", 
@@ -1017,15 +1005,14 @@ sub igvSession{
 					}
 				}
 			}
-			
-			
 		}
 	}
 	
 
 #### output the xml
+my $refGenomeName = ($S_ref_data_v eq "b37") ? "b37" : "hg38";
 my $xmlOUT="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>
-<Session genome=\"b37\" hasGeneTrack=\"true\" hasSequenceTrack=\"true\" locus=\"1:197493130-197514036\" version=\"8\">
+<Session genome=\"$refGenomeName\" hasGeneTrack=\"true\" hasSequenceTrack=\"true\" locus=\"CYP2D6\" version=\"8\">
 \t<Resources>\n";
 	foreach my $cPanel (sort {$a <=> $b} keys %IGVS){
 		foreach my $cTrack (sort {$a <=> $b} keys %{$IGVS{$cPanel}}){
@@ -1034,8 +1021,8 @@ my $xmlOUT="<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"no\"?>
 	}
 
 	$xmlOUT.="\t\t<Resource path=\"$ENSEMBLEgenes\"/>\n";
-    $xmlOUT.="\t</Resources>\n";
-    
+	$xmlOUT.="\t</Resources>\n";
+
 foreach my $cPanel (sort {$a <=> $b} keys %IGVS){
 
 	my $cPanelName=($cPanel eq 1)?  "DataPanel":"Panel$cPanel";
@@ -1056,9 +1043,10 @@ foreach my $cPanel (sort {$a <=> $b} keys %IGVS){
 
 }
 
+$geneNameTrack=($S_ref_data_v eq "b37") ? "b37_genes" : "hg38_genes";
 $xmlOUT.="\t<Panel height=\"126\" name=\"FeaturePanel\" width=\"1133\">
 \t\t<Track altColor=\"0,0,178\" autoScale=\"false\" color=\"0,0,178\" displayMode=\"EXPANDED\" featureVisibilityWindow=\"-1\" fontSize=\"10\" id=\"Reference sequence\" name=\"Reference sequence\" sortable=\"false\" visible=\"true\"/>
-\t\t<Track altColor=\"0,0,178\" autoScale=\"false\" clazz=\"org.broad.igv.track.FeatureTrack\" color=\"0,0,178\" colorScale=\"ContinuousColorScale;0.0;251.0;255,255,255;0,0,178\" displayMode=\"EXPANDED\" featureVisibilityWindow=\"-1\" fontSize=\"10\" height=\"35\" id=\"b37_genes\" name=\"Gene\" renderer=\"BASIC_FEATURE\" sortable=\"false\" visible=\"true\" windowFunction=\"count\">
+\t\t<Track altColor=\"0,0,178\" autoScale=\"false\" clazz=\"org.broad.igv.track.FeatureTrack\" color=\"0,0,178\" colorScale=\"ContinuousColorScale;0.0;251.0;255,255,255;0,0,178\" displayMode=\"SQUISHED\" featureVisibilityWindow=\"-1\" fontSize=\"10\" height=\"35\" id=\"$geneNameTrack\" name=\"Gene\" renderer=\"BASIC_FEATURE\" sortable=\"false\" visible=\"true\" windowFunction=\"count\">
 \t\t\t<DataRange baseline=\"0.0\" drawBaseline=\"true\" flipAxis=\"false\" maximum=\"251.0\" minimum=\"0.0\" type=\"LINEAR\"/>
 \t\t</Track>
 \t<Track altColor=\"0,0,178\" autoScale=\"false\" clazz=\"org.broad.igv.track.FeatureTrack\" color=\"0,0,178\" displayMode=\"SQUISHED\" featureVisibilityWindow=\"1000000\" fontSize=\"10\" id=\"$ENSEMBLEgenes\" name=\"ENSEMBL Genes\" renderer=\"BASIC_FEATURE\" sortable=\"false\" visible=\"true\" windowFunction=\"count\"/>
@@ -1368,11 +1356,11 @@ sub createSampleInfoFromInput {
 		
 		
 		make_path("$projectDir/alignments/$h{SM}/sh") if (! -e "$projectDir/alignments/$h{SM}/sh");
-		print STDERR "ln -s $inB $projectDir/alignments/$h{SM}/$h{SM}.bam\n";
+		print STDERR "ln -s ../../../$inBFileName $projectDir/alignments/$h{SM}/$h{SM}.bam\n";
 		print `ln -s $inB $projectDir/alignments/$h{SM}/$h{SM}.bam` if (! -e "$projectDir/alignments/$h{SM}/$h{SM}.bam");
 		
 		if(! -f "$inB.bai"){"\n **** error: Bam index file not found: $inB.bai **** \n"; exit}
-		print STDERR "ln -s $inB.bai $projectDir/alignments/$h{SM}/$h{SM}.bam.bai\n";
+		print STDERR "ln -s ../../../$inBFileName.bai $projectDir/alignments/$h{SM}/$h{SM}.bam.bai\n";
 		print `ln -s $inB.bai $projectDir/alignments/$h{SM}/$h{SM}.bam.bai` if (! -e "$projectDir/alignments/$h{SM}/$h{SM}.bam.bai");
 		
 	}
@@ -1411,13 +1399,13 @@ sub printHelp{
 
 print STDERR "
 ### This script runs ClinSV on a single node ###
-Version: 0.9 2019_02_13
-Author: Andre E Minoche
+Version: $clinSvVersion
+Author: Andre E Minoche, James Bradley, Mark J Cowley
 
 usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref_data [options]
 
 ### Options:
--p Project folder [current_dir]. 
+-p Project folder [current_dir]. This can take two colon separated values, see README.md
 -r Analysis steps to run [all]. All is equivalent to bigwig,lumpy,cnvnator,annotate,prioritize,qc,igv
    Multiple steps must be comma separated with no spaces in-between.
 -i Path to input bams [./input/*.bam]. Requires bam index ending to be \"*.bam.bai.\". 
@@ -1429,30 +1417,17 @@ usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref
 -n Name stem for joint-called files (e.g joint vcf file) in case different sample grouping exists. 
    This is necessary if different sets of samples specified wtih -s are analysed within the same 
    project folder, E.g. a family trio and a set of single proband individuals.
+ -w short for 'web': In the IGV session file, stream the annotation tracks from a server. Convenient if you
+    prefer to run ClinSV on an HPC (where you have a copy of the annotation bundle) and view results on your desktop 
 -l Lumpy batch size. Number of sampels to be joint-called [15]. 
--ref Path to reference data dir [./refdata-b37].
+-ref Path to reference data dir [./refdata-b38]. This can take two colon separated values, see README.md
 -eval Create the NA12878 validation report section [no].
 -h print this help
 
 # To rerun a specific analysis steps:
 clinsv -r annotsv,prioritize -f
 
-
 \n\n";
 
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
