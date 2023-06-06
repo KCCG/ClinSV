@@ -41,6 +41,7 @@ Download a sample bam to test ClinSV (71GB):
 ```
 wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam
 wget https://clinsv.s3.ccia.org.au/clinsv_b38/NA12878_b38.bam.bai
+
 ```
 or here is a smaller BAM file (4.7GB)
 ```
@@ -118,6 +119,70 @@ Expect this to ~8 hours for a 30x WGS file.
 When providing a [pedigree file](misc/sampleInfo.ped), the output will contain additional columns showing e.g. how often a variant was observed among affected and unaffected individuals. The pedigree file has to be named "sampleInfo.ped" and it has to be placed into the project folder.
 
 To mark variants affecting user defined candidate genes, a [gene list](misc/testGene.ids) list has to be placed into the project folder and named "testGene.ids". Gene names have to be as in ENSEMBL GRCh37.
+
+# ClinSV version 0.9
+Install and usage instructions for ClinSV v0.9
+## Download
+
+Download human genome reference data GRCh37 decoy (hs37d5):
+
+```
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/refdata-b37_v0.9.tar
+# check md5sum: 921ecb9b9649563a16e3a47f25954951
+tar xf refdata-b37_v0.9.tar
+refdata_path=$PWD/clinsv/refdata-b37
+```
+
+Download a sample bam to test ClinSV:
+
+```
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/NA12878_v0.9.bam
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/NA12878_v0.9.bam.bai
+input_path=$PWD
+```
+
+The ClinSV software can be downloaded precompiled, as a Singularity image or through Docker. Please refer to the section below.
+
+
+## Run ClinSV
+
+### Using Singularity
+```
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/clinsv.sif
+singularity run clinsv.sif \
+  -i "$input_path/*.bam" \
+  -ref $refdata_path \
+  -p $PWD/project_folder
+```
+
+### Using Docker
+```
+docker pull kccg/clinsv
+project_folder=$PWD/test_run
+docker run \
+-v $refdata_path:/app/ref-data \
+-v $project_folder:/app/project_folder \
+-v $input_path:/app/input \
+  kccg/clinsv -r all \
+-i "/app/input/*.bam" \
+-ref $refdata_path:/app/ref-data \
+-p $project_folder:/app/project_folder
+```
+
+### Linux Native
+
+Download precompiled ClinSV bundle for CentOS 6.8 x86_64
+
+```
+wget https://clinsv.s3.ccia.org.au/clinsv_b37/ClinSV_x86_64_v0.9.tar.gz
+tar zxf ClinSV_x86_64_v0.9.tar.gz
+clinsv_path=$PWD/clinsv
+export PATH=$clinsv_path/bin:$PATH
+clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
+```
+
+### Compile dependencies from source
+see [INSTALL.md](INSTALL.md)
 
 
 ## Hardware requirements
