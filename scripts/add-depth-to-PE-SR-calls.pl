@@ -22,17 +22,20 @@ $readLen=150;
 
 $inVCF=shift(@ARGV);
 $inRef=shift(@ARGV);
+$inRefStyle=shift(@ARGV);
 $projectDir=shift(@ARGV);
 $jobfs=shift(@ARGV);
 $S_SV_control_numSamples=shift(@ARGV);
 $S_control_bw_folder=shift(@ARGV);
 
-if (basename($inRef) =~ /38/){
+if ($inRefStyle =~ /chr/){
 	$chrPf='chr';
 	$Y_chr="chrY";
 	$X_chr="chrX";
 	$M_chr="chrM";
 }else{
+
+	# default to grch37 naming convention
 	$chrPf='';
 	$Y_chr="Y";
 	$X_chr="X";

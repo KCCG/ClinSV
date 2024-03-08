@@ -24,8 +24,9 @@ For 500 WGS [samples](misc/control_sample_IDs.txt) of the Medical Genome Referen
 
 Please refer to the [manuscript](https://doi.org/10.1186/s13073-021-00841-x) for further details.
 
-# ClinSV version 1.0.1
-This repository contains the source code and Docker files required to run ClinSV version 1.0.1. This version only supports the GRCh38 reference genome. Please refer to release v0.9 to use ClinSV with reference genome GRCh37 decoy (hs37d5). A future version 1.1 will allow any reference genome to be used.
+
+# ClinSV version 1.1.0
+This repository contains the source code and Docker files required to run ClinSV version 1.1.0. This version supports both GRCh38 and GRCh37 decoy (hs37d5) reference genome.
 
 ## Download
 
@@ -73,8 +74,10 @@ Current working directory
 
 ## Run ClinSV
 
+
+### Using Docker
 ```
-docker pull mrbradley2/clinsv:v1.0.1
+docker pull mrbradley2/clinsv:v1.0
 
 refdata_path=$PWD/clinsv/refdata-b38
 input_path=$PWD
@@ -83,6 +86,7 @@ project_folder=$PWD/test_run
 docker run -v $refdata_path:/app/ref-data \
 -v $project_folder:/app/project_folder  \
 -v $input_path:/app/input  \
+
 --entrypoint "perl" mrbradley2/clinsv:v1.0.1 /app/clinsv/bin/clinsv \
 -r all \
 -p /app/project_folder/ \
@@ -91,6 +95,7 @@ docker run -v $refdata_path:/app/ref-data \
 -w
 ```
 Expect this to ~8 hours for a 30x WGS file.
+
 
 ## ClinSV options
 
@@ -109,8 +114,11 @@ Expect this to ~8 hours for a 30x WGS file.
    project folder, E.g. a family trio and a set of single proband individuals.
 -l Lumpy batch size. Number of sampels to be joint-called [15]. 
 -ref Path to reference data dir [./refdata-b37].
+
 -w short for 'web': In the IGV session file, stream the annotation tracks from a server. Convenient if you
    prefer to run ClinSV on an HPC (where you have a copy of the annotation bundle) and view results on your desktop
+-hg19 Specify that input bams use hg19 chromosome nomenclature, use when using input bams that are
+	aligned to hg19 along with the reference data dir refdata-b37.
 -eval Create the NA12878 validation report section [no].
 -h print this help
 ```
@@ -128,6 +136,7 @@ Download human genome reference data GRCh37 decoy (hs37d5):
 
 ```
 wget https://clinsv.s3.ccia.org.au/clinsv_b37/refdata-b37_v0.9.tar
+
 # check md5sum: 921ecb9b9649563a16e3a47f25954951
 tar xf refdata-b37_v0.9.tar
 refdata_path=$PWD/clinsv/refdata-b37
@@ -183,7 +192,6 @@ clinsv -r all -p $PWD/project_folder -i "$input_path/*.bam" -ref $refdata_path
 
 ### Compile dependencies from source
 see [INSTALL.md](INSTALL.md)
-
 
 ## Hardware requirements
 * based on 30-40x WGS (80GB BAM file): 16 CPUs, 60GB RAM, 200 GB storage
@@ -257,7 +265,7 @@ For more information please see the publication.
 4. Why does my BAM not work? You must have one sample name 'SM' defined in the BAM header.
 5. Can i run hundreds of BAM files through ClinSV? We mostly tested ClinSV on trios or small numbers of WGS, so this probably won't work.
 6. Will you support CRAM? Yes, one day.
-7. Can i use hg19? No. v0.9 allows analysis against the hs37d5 ref genome (and the b37), where chrom names are 1, 2, ..., X, Y, MT. V1.0.x supports grch38, where chrom names are chr1,chr2,...,chrX,chrY.
+7. Can I use hg19? Yes you can use the -hg19 flag while using the hs37d5 or b37 ref genome. The hs37d5 ref genome (and the b37), have chrom names are 1, 2, ..., X, Y, MT. Whilst grch38, have chrom names are chr1,chr2,...,chrX,chrY.
 8. Do you support alt/no alts? ClinSV should accept any of the versions of GRCh38, but will only analyse CNV or SV on the autosomes, and allosomes (X and Y).
 9. Will ClinSV work on model organisms? We've never tried. The annotation files and control data are important features of ClinSV, so it probably isn't the best choice.
 

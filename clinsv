@@ -18,7 +18,7 @@ use lib "$RealBin/../perlib";
 ######################################## default settings
 ########################################
 
-$clinSvVersion="1.0.1 (2023-02-21)";
+$clinSvVersion="1.1 (2024-03-08)";
 
 $runString="all";
 $inputAlignDir="./input/*.bam";
@@ -41,6 +41,7 @@ GetOptions (
 		    "f"  => \$force,	
 		    "a"  => \$S_AskBeforeSub,
 		    "ref=s"  => \$S_ref_data,
+			"hg19" => \$isHg19,
 		    "h"  => \$help,
 		    "l=i"  => \$lumpyBatchSize,
 		    "eval"  => \$eval,
@@ -138,6 +139,9 @@ $S_cnvnator_bin="$S_clinsv_dir/cnvnator-multi";
 $S_cnvnator_chroms="$S_ref_data/cnvnator_chroms";
 $S_root_src="$S_clinsv_dir/root";
 
+# Gemini
+$geminiRscr="/scratch/gd7/resources/kccg-gemini";
+$geminiBin="/scratch/gd7/resources/gemini/bin";
 
 # for annotate
 $S_KDB_SV="$S_ref_data/annotation/MGRB-SV.bed.gz"; # to create see create-KDB-SV.pl in AZ_MA-comparisons.txt
@@ -177,8 +181,21 @@ if ($S_ref_data_v eq "b37"){
 	#$refFasta_bwa="$S_GATK_bundle/human_g1k_v37_decoy.fasta";
 	$refFasta="$S_ref_data/genome/human_g1k_v37_decoy.fasta";
 	
-	$chrPf='';
-	$wig_line_count=$wig_line_count;
+
+	# used in ValidReportPrep.pl script as input
+	$refChrPf = 'blank';
+
+	if ($isHg19)
+	{
+		$chrPf='chr';
+		$refChrPf = 'chr';
+
+	}else{
+		$chrPf='';
+
+	}
+	$wig_line_count=3140518470;
+
 	
 }elsif ($S_ref_data_v eq "b38"){
 	
@@ -209,9 +226,10 @@ if ($S_ref_data_v eq "b37"){
 	$refFasta="$S_ref_data/genome/Homo_sapiens_assembly38.fasta";
 
 	$chrPf='chr';
+	# used in ValidReportPrep.pl script as input
+	$refChrPf = 'chr';
 	$wig_line_count=3220490784;
 }
-
 
 ############### check if user defined run steps are part of above defined pipeline
 
@@ -381,7 +399,7 @@ sub lumpy {
 		# get mean and stdev per sample
 		open(OUT,">$$cJ{rShStem}.sh");
 		print OUT "$r_head";
-		
+
 		print OUT "perl $S_SV_scriptDir/filterConcordantPairs.pl $alignOut/$cSample.bam 100:100 ".$chrPf."1:1000001-5000000 $refFasta | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.discordants -o $r_OutDir/$cSample.discordants.bam -  &\n";
 		print OUT "samtools view -T $refFasta -h $alignOut/$cSample.bam  | python $S_lumpy_scripts/extractSplitReads_BwaMem -i stdin | awk '\$3 != \"hs37d5\" && \$3 != \"NC_007605\"' | samtools view -Sb - | samtools sort -m 1G -T $r_TmpDir/$cSample.splitters -o $r_OutDir/$cSample.splitters.bam - &\n";
 		print OUT "wait\n"; 
@@ -441,6 +459,10 @@ sub lumpy {
 			foreach $cReadGroupID (keys %{$fastq{$cSample}}){
 				$outStemSC=$cReadGroupID; $outStemSC=~ s/\-/_/g;		
 				print OUT "readLArr[$outStemSC]=\$(samtools view  $projectDir/alignments/$cSample/$cSample.bam ".$chrPf."1:1000000-1100000 | cut -f 10 | awk '{ print length}' | sort -rn | awk '(NR==1){print}' )\n";
+				
+				# Test to make sure readLArr[$outStemSC] is not empty as we the bam could be aligned to a different naming convention. If so try the hg19 naming convention
+				print OUT "[ -z \"$readLArr[$outStemSC]\" ] && readLArr[$outStemSC]=\$(samtools view  $projectDir/alignments/$cSample/$cSample.bam chr1:1000000-1100000 | cut -f 10 | awk '{ print length}' | sort -rn | awk '(NR==1){print}' )\n";
+				
 				print OUT "read -r mean stdev <<< \$( samtools view -r $cReadGroupID $projectDir/alignments/$cSample/$cSample.bam | python3 $S_SV_scriptDir/pairend_distro-a1.py -r \${readLArr[$outStemSC]} -X 2 -N 100000 -o $r_PreProc/$cReadGroupID.pe.histo | cut -d \":\" -f 2 )\n";		
 				print OUT "meanArr[$outStemSC]=\$mean;stdevArr[$outStemSC]=\$stdev;\n";
 			}	
@@ -484,7 +506,7 @@ sub lumpy {
 		print OUT "perl -e 'while(<>){ if(/^#/){\$h.=\$_; next;} \@_=split(\"\\t\",\$_); \$c=\$_[0]; if(!exists(\$f{\$c})){ open(\$f{\$c},\">$r_TmpDir/in.\$c.vcf\"); print {\$f{\$c}} \$h; } \n";  
 		print OUT "print {\$f{\$c}} \$_; } foreach (values %f){close} ' $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.vcf \n";			
 
-		print OUT "ls $r_TmpDir/in.*.vcf | xargs -P 12 -t -i{} perl $S_SV_scriptDir/add-depth-to-PE-SR-calls.pl {} $refFasta $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder \n";
+		print OUT "ls $r_TmpDir/in.*.vcf | xargs -P 12 -t -i{} perl $S_SV_scriptDir/add-depth-to-PE-SR-calls.pl {} $refFasta ".$chrPf." $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder \n";
 		print OUT "(grep \"#\" $r_TmpDir/in.".$chrPf."1.out; cat $r_TmpDir/in.*.out | grep -v \"#\" | sort -V -k1,1 -k2,2n ) > $r_OutDir/$nameStemJoint.MQ$LP_MQ.$lumpOrSpeedPreProc$fileExt.f1.vcf\n";	
 		
 
@@ -514,7 +536,7 @@ sub cnvnator {
 	$r_head="";
 	$r_head.="export PATH=$softBin:\$PATH\n";
 	$r_head.=$S_python; 
-	$r_head.= "source $S_root_src/bin/thisroot.sh\n";
+	# $r_head.= "source $S_root_src/bin/thisroot.sh\n";
 	$r_head.="set -e -x -o pipefail\n\n"; 
 	
 	foreach $cSample (sort keys %fastq){
@@ -537,7 +559,7 @@ sub cnvnator {
 		print OUT "-T $r_TmpDir -t 14 -w 100 -b $projectDir/alignments/$cSample/$cSample.bam -o $r_OutDir/cnvnator.$cSample ";
 		print OUT "-c $S_cnvnator_chroms -g $S_ref_data_v --exclude '_,HLA,EBV' \n";	#Excluding superflous contigs	
 		
-		print OUT "perl $S_SV_scriptDir/filterCNVNator.pl $r_OutDir/cnvnator.$cSample.txt $cSample $refFasta $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder\n\n";
+		print OUT "perl $S_SV_scriptDir/filterCNVNator.pl $r_OutDir/cnvnator.$cSample.txt $cSample $refFasta ".$chrPf." $projectDir $S_SV_controlSRPE $S_SV_control_number_samples $S_control_bw_folder\n\n";
 		
 		print OUT "[ -d \"$r_TmpDir\" ] && rm -r $r_TmpDir\n\n" if $removeTmpFilesSh;
 		close(OUT);
@@ -767,7 +789,7 @@ sub qc {
 			make_path($projectDir."/SVs/qc/tmpQC") if (! -d $r_SVDir."/SVs/qc/tmpQC");
 		
 			###### prepare data
-			print OUT "perl $S_SV_scriptDir/validReportPrep.pl $projectDir $refFasta \"$fileExt\" $cSample $nameStemJoinF\n\n";
+			print OUT "perl $S_SV_scriptDir/validReportPrep.pl $projectDir $refFasta ".$refChrPf." \"$fileExt\" $cSample $nameStemJoinF\n\n";
 		
 			if($eval){
 			
@@ -1402,6 +1424,7 @@ print STDERR "
 Version: $clinSvVersion
 Author: Andre E Minoche, James Bradley, Mark J Cowley
 
+
 usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref_data [options]
 
 ### Options:
@@ -1420,7 +1443,9 @@ usage: clinsv -p /path/to/project -i /path/to/input_bams/*.bam -ref /path/to/ref
  -w short for 'web': In the IGV session file, stream the annotation tracks from a server. Convenient if you
     prefer to run ClinSV on an HPC (where you have a copy of the annotation bundle) and view results on your desktop 
 -l Lumpy batch size. Number of sampels to be joint-called [15]. 
--ref Path to reference data dir [./refdata-b38]. This can take two colon separated values, see README.md
+-ref Path to reference data dir [./refdata-b38 or ./refdata-b37]. This can take two colon separated values, see README.md
+-hg19 Specify that input bams use hg19 chromosome nomenclature, use when using input bams that are
+	aligned to hg19 along with the reference data dir refdata-b37.
 -eval Create the NA12878 validation report section [no].
 -h print this help
 
