@@ -28,7 +28,6 @@ Please refer to the [manuscript](https://doi.org/10.1186/s13073-021-00841-x) for
 # ClinSV version 1.1.0
 This repository contains the source code and Docker files required to run ClinSV version 1.1.0. This version supports both GRCh38 and GRCh37 decoy (hs37d5) reference genome.
 
-
 ## Download
 
 Download human genome reference data GRCh38 (37GB):
@@ -78,8 +77,7 @@ Current working directory
 
 ### Using Docker
 ```
-docker pull containerregistrypubliccb.azurecr.io/clinsv:v1.0
-
+docker pull mrbradley2/clinsv:v1.0
 
 refdata_path=$PWD/clinsv/refdata-b38
 input_path=$PWD
@@ -89,12 +87,12 @@ docker run -v $refdata_path:/app/ref-data \
 -v $project_folder:/app/project_folder  \
 -v $input_path:/app/input  \
 
---entrypoint "perl" containerregistrypubliccb.azurecr.io/clinsv:v1.0 /app/clinsv/bin/clinsv \
-
+--entrypoint "perl" mrbradley2/clinsv:v1.0.1 /app/clinsv/bin/clinsv \
 -r all \
 -p /app/project_folder/ \
 -i "/app/input/*.bam" \
 -ref /app/ref-data/refdata-b38 \
+-w
 ```
 Expect this to ~8 hours for a 30x WGS file.
 
@@ -116,6 +114,7 @@ Expect this to ~8 hours for a 30x WGS file.
    project folder, E.g. a family trio and a set of single proband individuals.
 -l Lumpy batch size. Number of sampels to be joint-called [15]. 
 -ref Path to reference data dir [./refdata-b37].
+
 -w short for 'web': In the IGV session file, stream the annotation tracks from a server. Convenient if you
    prefer to run ClinSV on an HPC (where you have a copy of the annotation bundle) and view results on your desktop
 -hg19 Specify that input bams use hg19 chromosome nomenclature, use when using input bams that are
@@ -128,18 +127,6 @@ Expect this to ~8 hours for a 30x WGS file.
 When providing a [pedigree file](misc/sampleInfo.ped), the output will contain additional columns showing e.g. how often a variant was observed among affected and unaffected individuals. The pedigree file has to be named "sampleInfo.ped" and it has to be placed into the project folder.
 
 To mark variants affecting user defined candidate genes, a [gene list](misc/testGene.ids) list has to be placed into the project folder and named "testGene.ids". Gene names have to be as in ENSEMBL GRCh37.
-
-# ClinSV version 1.1.0
-ClinSV version 1.1.0 is currently under development and aims to make major usability improvements such as:
- - Ability to use both GRCh37 and GRCh38 reference genomes 
- - Support for hg19 style chromosome names for v37 or v38 reference genomes
- - XML bug fixes to correct publicly hosted resource files
-
-Its development is kept track in this [issue](https://github.com/KCCG/ClinSV/issues/27#issue-1248950365) with most usability improvements implemented, however its is still buggy. Its docker container can be pulled from: 
-
-`docker pull containerregistrypubliccb.azurecr.io/clinsv:v1.1-dev`.
-
-Usage information for new features is currently shown in linked enhancement issues in the main development issues described previously.
 
 # ClinSV version 0.9
 Install and usage instructions for ClinSV v0.9
@@ -244,7 +231,7 @@ and the manuscript (see section citation)
 
 This IGV genome browser session file contains paths to supporting data files necessary for manual inspection of variants. There are tracks from static annotation files and those from your sample(s) of interest.
 
-If ClinSV was executed on a remote computer, like an HPC, or **within a docker container** then the file paths might not work on your Desktop. The default option of `-p /app/project_folder/` creates resource paths like this:
+If ClinSV was executed on a remote computer, like an HPC, then the file paths might not work on your Desktop. The default option of `-p /app/project_folder/` creates resource paths like this:
 
   <Resource path="/app/project_folder/test_run/igv/alignments/Sample/bw/Sample.q0.bw"/>
 
@@ -265,16 +252,18 @@ Once you copy the results to `/path/on/desktop`, the session file will now work.
 
 4: mount the remote folder on your desktop (eg sshfs) using the same folder structure
 
+Consider specifying the `-w` option to allow the annotation tracks to be streamed in from our server. This is convenient if you don't want to have the full annotation bundle on your desktop.
+
 When the IGV application is open, the hyperlinks within the `sample.RARE_PASS_GENE.xlsx` file will open session files and to navigate to variants.
 
 For more information please see the publication.
 
-## Commonly asked questions (FAQ)
+## Commonly asked questions
 1. Does ClinSV support long read data (Nanopore or PacBio)? No.
 2. Does ClinSV work on targeted short read NGS data (eg WES or panels)? No, it only works on WGS.
 3. Does ClinSV work on NovaSeq data? Yes it should be fine, but the control data was generated on HiSeq X & much of the strength of ClinSV is removing the noise that can happen when searching genome-wide.
 4. Why does my BAM not work? You must have one sample name 'SM' defined in the BAM header.
-5. Can I run hundreds of BAM files through ClinSV? We mostly tested ClinSV on trios or small numbers of WGS, so this probably won't work.
+5. Can i run hundreds of BAM files through ClinSV? We mostly tested ClinSV on trios or small numbers of WGS, so this probably won't work.
 6. Will you support CRAM? Yes, one day.
 7. Can I use hg19? Yes you can use the -hg19 flag while using the hs37d5 or b37 ref genome. The hs37d5 ref genome (and the b37), have chrom names are 1, 2, ..., X, Y, MT. Whilst grch38, have chrom names are chr1,chr2,...,chrX,chrY.
 8. Do you support alt/no alts? ClinSV should accept any of the versions of GRCh38, but will only analyse CNV or SV on the autosomes, and allosomes (X and Y).
